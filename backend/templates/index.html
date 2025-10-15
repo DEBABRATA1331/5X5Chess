@@ -59,18 +59,18 @@
     }
 
     .black-piece {
-      color: #0ff;
-      text-shadow: 0 0 8px #fff;
+      color: #000;
+      text-shadow: 0 0 8px #0ff;
     }
 
     #controls {
-      margin-top: 10px;
+      margin-top: 15px;
       display: flex;
       gap: 20px;
       align-items: center;
     }
 
-    #resetBtn {
+    button {
       background: #0ff;
       color: #000;
       border: none;
@@ -81,7 +81,7 @@
       transition: 0.2s;
     }
 
-    #resetBtn:hover {
+    button:hover {
       background: #fff;
     }
 
@@ -96,17 +96,27 @@
       width: 300px;
       border: 1px solid #0ff5;
     }
+
+    #turn-indicator {
+      margin-bottom: 10px;
+      font-weight: bold;
+      text-shadow: 0 0 8px #0ff;
+    }
+
   </style>
 </head>
 <body>
 
   <h1>5x5 Neon Mini Chess</h1>
 
-  <div id="turn-indicator">Turn: WHITE</div>
+  <div id="turn-indicator">Status: Waiting to Start</div>
 
   <div class="board" id="chessboard"></div>
 
   <div id="controls">
+    <button id="startBtn">Start</button>
+    <button id="playBtn" disabled>Play</button>
+    <button id="pauseBtn" disabled>Pause</button>
     <button id="resetBtn">Reset</button>
   </div>
 
@@ -115,13 +125,20 @@
   <script>
     const board = document.getElementById('chessboard');
     const boardSize = 5;
+    const turnIndicator = document.getElementById('turn-indicator');
+    const startBtn = document.getElementById('startBtn');
+    const playBtn = document.getElementById('playBtn');
+    const pauseBtn = document.getElementById('pauseBtn');
+    const resetBtn = document.getElementById('resetBtn');
 
-    // Piece arrangement
     const whitePieces = ['♙', '♘', '♕', '♗', '♙'];
-    const blackPieces = ['♙', '♗', '♕', '♘', '♙']; // mirror order of white
+    const blackPieces = ['♙', '♗', '♕', '♘', '♙']; // mirror order
+
+    let gameStarted = false;
+    let gamePaused = false;
 
     function createBoard() {
-      board.innerHTML = ''; // Clear board
+      board.innerHTML = '';
 
       for (let r = 0; r < boardSize; r++) {
         for (let c = 0; c < boardSize; c++) {
@@ -129,11 +146,10 @@
           cell.id = `${r}-${c}`;
           cell.classList.add('cell');
 
-          // Set pieces
-          if (r === 0) { // top row → black
+          if (r === 0) {
             cell.textContent = blackPieces[c];
             cell.classList.add('black-piece');
-          } else if (r === 4) { // bottom row → white
+          } else if (r === 4) {
             cell.textContent = whitePieces[c];
             cell.classList.add('white-piece');
           }
@@ -143,9 +159,39 @@
       }
     }
 
-    document.getElementById('resetBtn').addEventListener('click', createBoard);
+    // Button Handlers
+    startBtn.addEventListener('click', () => {
+      gameStarted = true;
+      gamePaused = false;
+      turnIndicator.textContent = "Turn: WHITE";
+      startBtn.disabled = true;
+      playBtn.disabled = false;
+      pauseBtn.disabled = false;
+    });
 
-    // Initialize board on load
+    playBtn.addEventListener('click', () => {
+      if (!gameStarted) return;
+      gamePaused = false;
+      turnIndicator.textContent = "Game: Playing";
+    });
+
+    pauseBtn.addEventListener('click', () => {
+      if (!gameStarted) return;
+      gamePaused = true;
+      turnIndicator.textContent = "Game: Paused";
+    });
+
+    resetBtn.addEventListener('click', () => {
+      createBoard();
+      gameStarted = false;
+      gamePaused = false;
+      startBtn.disabled = false;
+      playBtn.disabled = true;
+      pauseBtn.disabled = true;
+      turnIndicator.textContent = "Status: Waiting to Start";
+    });
+
+    // Initialize
     createBoard();
   </script>
 

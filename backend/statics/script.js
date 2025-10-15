@@ -1,193 +1,238 @@
-// ==========================
-// ⚡ 5x5 Neon Mini Chess (Letter-Based)
-// ==========================
-
-const boardSize = 5;
 let selectedCell = null;
 let currentPlayer = 'white';
-let moveHistory = [];
+let gameStarted = false;
+let gamePaused = false;
 
-// === Helper Functions ===
-function getPosition(cell) {
-  const [row, col] = cell.id.split('-').map(Number);
-  return { row, col };
-}
+const pieceMap = {
+  '♔': 'white', // King
+  '♕': 'white', // Queen
+  '♖': 'white', // Rook
+  '♗': 'white', // Bishop
+  '♘': 'white', // Knight
+  '♙': 'white', // Pawn
 
-function isValid(row, col) {
-  return row >= 0 && row < boardSize && col >= 0 && col < boardSize;
-}
+  '♚': 'black', // King
+  '♛': 'black', // Queen
+  '♜': 'black', // Rook
+  '♝': 'black', // Bishop
+  '♞': 'black', // Knight
+  '♟': 'black'  // Pawn
+};
 
-function getCell(row, col) {
-  return document.getElementById(`${row}-${col}`);
-}
+// ------------------------ Utility Functions ------------------------
 
 function getPiece(cell) {
   return cell.textContent.trim();
 }
 
 function getPieceOwner(cell) {
-  if (!cell.textContent.trim()) return null;
-  return cell.classList.contains('white-piece') ? 'white' : 'black';
+  const p = getPiece(cell);
+  return pieceMap[p] || null;
 }
 
-// === Move a Piece ===
-function movePiece(fromCell, toCell, aiMove = false) {
-  const piece = getPiece(fromCell);
-  if (!piece) return;
+function clearHighlights() {
+  document.querySelectorAll('.cell').forEach(c => c.classList.remove('highlight'));
+}
 
-  // If capturing king -> win
-  if (getPiece(toCell) === 'K') {
-    setTimeout(() => {
-      alert(`${currentPlayer.toUpperCase()} captured the King! Game Over.`);
-      location.reload();
-    }, 200);
+function highlightMoves(moves) {
+  moves.forEach(cell => cell.classList.add('highlight'));
+}
+
+function isInBounds(r, c) {
+  return r >= 0 && r < 5 && c >= 0 && c < 5;
+}
+
+// ------------------------ Game Start / Pause ------------------------
+
+function startGame() {
+  gameStarted = true;
+  gamePaused = false;
+  document.getElementById('status').textContent = "Game Started — White’s turn ♔";
+}
+
+function pauseGame() {
+  gamePaused = true;
+  document.getElementById('status').textContent = "Game Paused ⏸️";
+}
+
+// ------------------------ Move Logic ------------------------
+
+function movePiece(fromCell, toCell) {
+  const piece = getPiece(fromCell);
+  const captured = getPiece(toCell);
+
+  toCell.textContent = piece;
+  fromCell.textContent = '';
+
+  const log = document.getElementById('move-history');
+  log.textContent += `${currentPlayer} moved ${piece} ${fromCell.id} → ${toCell.id}${captured ? ' (captured ' + captured + ')' : ''}\n`;
+  log.scrollTop = log.scrollHeight;
+
+  if (captured === '♚' || captured === '♔') {
+    alert(`${currentPlayer.toUpperCase()} captured the King! Game Over.`);
+    gameStarted = false;
     return;
   }
 
-  // Move piece and set owner class
-  toCell.textContent = piece;
-  toCell.className = `cell ${currentPlayer}-piece`;
-  fromCell.textContent = '';
-  fromCell.className = 'cell';
-
-  const moveText = `${currentPlayer.toUpperCase()}: ${piece} ${fromCell.id} → ${toCell.id}`;
-  moveHistory.push(moveText);
-  updateMoveHistory();
-
-  if (!aiMove) switchTurn();
-}
-
-// === Switch Turns ===
-function switchTurn() {
   currentPlayer = currentPlayer === 'white' ? 'black' : 'white';
-  document.getElementById('turn-indicator').textContent =
-    `Turn: ${currentPlayer.toUpperCase()}`;
+  document.getElementById('status').textContent = `${currentPlayer.toUpperCase()}'s turn`;
+  
+  clearHighlights();
+  selectedCell = null;
 
   if (currentPlayer === 'black') {
     setTimeout(aiMakeMove, 600);
   }
 }
 
-// === Move History ===
-function updateMoveHistory() {
-  const log = document.getElementById('move-history');
-  log.innerHTML = moveHistory.map(m => `<li>${m}</li>`).join('');
-}
+// ------------------------ Valid Move Generator ------------------------
 
-// === Valid Moves ===
-function getValidMoves(piece, row, col) {
+function getValidMoves(cell) {
+  const piece = getPiece(cell);
+  const owner = getPieceOwner(cell);
+  if (!piece || !owner) return [];
+
+  const row = parseInt(cell.dataset.row);
+  const col = parseInt(cell.dataset.col);
   const moves = [];
 
-  if (piece === 'K') {
-    for (let dr = -1; dr <= 1; dr++) {
-      for (let dc = -1; dc <= 1; dc++) {
-        if (dr || dc) if (isValid(row + dr, col + dc)) moves.push({ row: row + dr, col: col + dc });
+  const tryAdd = (r, c) => {
+    if (!isInBounds(r, c)) return;
+    const target = document.querySelector(`[data-row="${r}"][data-col="${c}"]`);
+    const targetOwner = getPieceOwner(target);
+    if (targetOwner !== owner) moves.push(target);
+  };
+
+  switch (piece) {
+    case '♔': case '♚': // King
+      for (let dr = -1; dr <= 1; dr++) {
+        for (let dc = -1; dc <= 1; dc++) {
+          if (dr || dc) tryAdd(row + dr, col + dc);
+        }
       }
-    }
-  } else if (piece === 'S') {
-    if (isValid(row - 1, col)) moves.push({ row: row - 1, col: col });
-    if (isValid(row + 1, col)) moves.push({ row: row + 1, col: col });
-  } else if (piece === 'E') {
-    const dirs = [[1,1],[1,-1],[-1,1],[-1,-1]];
-    dirs.forEach(([dr, dc]) => {
-      let r = row + dr, c = col + dc;
-      while (isValid(r, c)) {
-        moves.push({ row: r, col: c });
-        if (getPieceOwner(getCell(r, c))) break;
-        r += dr; c += dc;
+      break;
+
+    case '♙': // White Pawn
+      if (owner === 'white') {
+        tryAdd(row - 1, col);
+        tryAdd(row - 1, col - 1);
+        tryAdd(row - 1, col + 1);
       }
-    });
-  } else if (piece === 'H') {
-    const jumps = [[-2,-1],[-2,1],[2,-1],[2,1],[-1,-2],[-1,2],[1,-2],[1,2]];
-    jumps.forEach(([dr, dc]) => {
-      if (isValid(row + dr, col + dc)) moves.push({ row: row + dr, col: col + dc });
-    });
+      break;
+
+    case '♟': // Black Pawn
+      if (owner === 'black') {
+        tryAdd(row + 1, col);
+        tryAdd(row + 1, col - 1);
+        tryAdd(row + 1, col + 1);
+      }
+      break;
+
+    case '♘': case '♞': // Knight
+      const knightMoves = [
+        [2, 1], [2, -1], [-2, 1], [-2, -1],
+        [1, 2], [1, -2], [-1, 2], [-1, -2]
+      ];
+      knightMoves.forEach(([dr, dc]) => tryAdd(row + dr, col + dc));
+      break;
+
+    case '♗': case '♝': // Bishop
+      for (let d = 1; d < 5; d++) {
+        tryAdd(row + d, col + d);
+        tryAdd(row + d, col - d);
+        tryAdd(row - d, col + d);
+        tryAdd(row - d, col - d);
+      }
+      break;
+
+    case '♕': case '♛': // Queen
+      for (let d = 1; d < 5; d++) {
+        tryAdd(row + d, col);
+        tryAdd(row - d, col);
+        tryAdd(row, col + d);
+        tryAdd(row, col - d);
+        tryAdd(row + d, col + d);
+        tryAdd(row + d, col - d);
+        tryAdd(row - d, col + d);
+        tryAdd(row - d, col - d);
+      }
+      break;
+
+    case '♖': case '♜': // Rook
+      for (let d = 1; d < 5; d++) {
+        tryAdd(row + d, col);
+        tryAdd(row - d, col);
+        tryAdd(row, col + d);
+        tryAdd(row, col - d);
+      }
+      break;
   }
 
   return moves;
 }
 
-// === Highlights ===
-function highlightMoves(moves) {
-  moves.forEach(pos => {
-    const target = getCell(pos.row, pos.col);
-    if (!getPieceOwner(target)) target.classList.add('valid-move');
-    else target.classList.add('valid-capture');
-  });
-}
+// ------------------------ Player Click Handler ------------------------
 
-function clearHighlights() {
-  document.querySelectorAll('.cell').forEach(c => c.classList.remove('selected', 'valid-move', 'valid-capture'));
-}
+document.querySelectorAll('.cell').forEach(cell => {
+  cell.addEventListener('click', () => {
+    if (!gameStarted || gamePaused || currentPlayer === 'black') return;
 
-// === AI Move ===
-function aiMakeMove() {
-  const allCells = Array.from(document.querySelectorAll('.cell'));
-  const aiPieces = allCells.filter(c => getPieceOwner(c) === 'black');
-
-  const allMoves = [];
-
-  aiPieces.forEach(cell => {
-    const { row, col } = getPosition(cell);
-    const piece = getPiece(cell);
-    const validMoves = getValidMoves(piece, row, col).filter(m => {
-      const target = getCell(m.row, m.col);
-      return getPieceOwner(target) !== 'black';
-    });
-    if (validMoves.length > 0) allMoves.push({ from: cell, moves: validMoves });
-  });
-
-  if (allMoves.length === 0) {
-    alert('AI has no valid moves. You win!');
-    return;
-  }
-
-  const randomPiece = allMoves[Math.floor(Math.random() * allMoves.length)];
-  const randomMove = randomPiece.moves[Math.floor(Math.random() * randomPiece.moves.length)];
-  const toCell = getCell(randomMove.row, randomMove.col);
-
-  movePiece(randomPiece.from, toCell, true);
-  currentPlayer = 'white';
-  document.getElementById('turn-indicator').textContent = 'Turn: WHITE';
-}
-
-// === Click Handler ===
-function attachHandlers() {
-  document.querySelectorAll('.cell').forEach(cell => {
-    cell.addEventListener('click', () => {
-      if (currentPlayer !== 'white') return;
-
-      const piece = getPiece(cell);
+    if (!selectedCell) {
       const owner = getPieceOwner(cell);
-
-      if (!selectedCell && piece && owner === currentPlayer) {
+      if (owner === currentPlayer) {
         selectedCell = cell;
-        cell.classList.add('selected');
-        const { row, col } = getPosition(cell);
-        highlightMoves(getValidMoves(piece, row, col));
-        return;
+        highlightMoves(getValidMoves(cell));
       }
-
-      if (selectedCell) {
-        const { row: fromR, col: fromC } = getPosition(selectedCell);
-        const { row: toR, col: toC } = getPosition(cell);
-        const validMoves = getValidMoves(getPiece(selectedCell), fromR, fromC);
-        const legal = validMoves.some(m => m.row === toR && m.col === toC);
-
-        if (legal && getPieceOwner(cell) !== currentPlayer) movePiece(selectedCell, cell);
-
+    } else {
+      const legalMoves = getValidMoves(selectedCell);
+      if (legalMoves.includes(cell)) {
+        movePiece(selectedCell, cell);
+      } else {
         clearHighlights();
         selectedCell = null;
       }
-    });
+    }
   });
-}
-
-// attach handlers once DOM loaded
-document.addEventListener('DOMContentLoaded', () => {
-  attachHandlers();
-  updateMoveHistory();
 });
 
-// === Reset ===
-document.getElementById('resetBtn').addEventListener('click', () => location.reload());
+// ------------------------ AI Logic (Moderate) ------------------------
+
+function aiMakeMove() {
+  if (!gameStarted || gamePaused || currentPlayer !== 'black') return;
+
+  const allCells = [...document.querySelectorAll('.cell')];
+  const aiPieces = allCells.filter(c => getPieceOwner(c) === 'black' && getPiece(c) !== '');
+
+  let bestMove = null;
+  let bestScore = -Infinity;
+
+  aiPieces.forEach(pieceCell => {
+    const moves = getValidMoves(pieceCell);
+    moves.forEach(move => {
+      const target = getPiece(move);
+      let score = 0;
+      if (target && pieceMap[target] === 'white') {
+        // Prioritize captures (higher score for stronger pieces)
+        const valueMap = { '♔': 10, '♕': 9, '♖': 5, '♗': 3, '♘': 3, '♙': 1 };
+        score = valueMap[target] || 1;
+      } else if (parseInt(move.dataset.row) > parseInt(pieceCell.dataset.row)) {
+        // Encourage forward movement
+        score = 0.5;
+      }
+
+      if (score > bestScore) {
+        bestScore = score;
+        bestMove = { from: pieceCell, to: move };
+      }
+    });
+  });
+
+  if (bestMove) {
+    movePiece(bestMove.from, bestMove.to);
+  } else {
+    // fallback random move
+    const randPiece = aiPieces[Math.floor(Math.random() * aiPieces.length)];
+    const moves = getValidMoves(randPiece);
+    if (moves.length > 0) movePiece(randPiece, moves[Math.floor(Math.random() * moves.length)]);
+  }
+}
