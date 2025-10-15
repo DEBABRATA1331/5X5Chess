@@ -31,7 +31,7 @@ h1 {
 }
 
 /* =============================
-   ♟️ Chessboard
+   ♟️ Chessboard - CRITICAL FIXES HERE
    ============================= */
 .board {
     /* FIX 1: Set the main container as the 5x5 grid */
@@ -50,8 +50,14 @@ h1 {
     overflow: hidden;
 }
 
-/* FIX 2: Removed the redundant .row block that caused conflicts */
-/* The entire .row block is now deleted from the CSS */
+/* *** NOTE: The .row CSS block is completely removed to prevent conflict ***
+/* It is commented out here as a reminder to ensure it is NOT in your file. */
+/*
+.row {
+    display: grid;
+    grid-template-columns: repeat(5, 80px);
+}
+*/
 
 /* Each cell */
 .cell {
@@ -79,29 +85,25 @@ h1 {
     text-shadow: 0 0 10px #ff0080, 0 0 20px #ff00ff;
 }
 
-/* FIX 3: Updated alternating color logic for single-container grid */
+/* Alternating board colors (dark neon tiles) */
 /* This logic targets cells based on their overall position in the 25-cell grid */
+
+/* Dark tiles */
 .cell:nth-child(10n + 1),
 .cell:nth-child(10n + 3),
 .cell:nth-child(10n + 5),
-.cell:nth-child(10n + 7),
-.cell:nth-child(10n + 9),
-.cell:nth-child(10n + 2),
-.cell:nth-child(10n + 4),
-.cell:nth-child(10n + 6),
 .cell:nth-child(10n + 8),
 .cell:nth-child(10n + 10) {
-    /* Simplified dark/light alternation for the 5x5 grid */
     background-color: #0a0a0a; 
 }
 
-/* Reset every other row's start color */
-.cell:nth-child(10n + 1),
-.cell:nth-child(10n + 3),
-.cell:nth-child(10n + 5),
+/* Light tiles */
+.cell:nth-child(10n + 2),
+.cell:nth-child(10n + 4),
+.cell:nth-child(10n + 6),
 .cell:nth-child(10n + 7),
 .cell:nth-child(10n + 9) {
-    background-color: #141414; /* Light tile */
+    background-color: #141414;
 }
 
 /* Hover highlight */
