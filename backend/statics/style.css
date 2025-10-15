@@ -1,193 +1,176 @@
 /* =============================
-   🌌 Neon 5x5 Mini Chess Board
-   ============================= */
+   🌌 Neon 5x5 Mini Chess Board
+   ============================= */
 
 body {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    background-color: #050505;
-    color: #e0f7fa;
-    font-family: 'Segoe UI', sans-serif;
-    margin: 0;
-    padding: 20px;
-    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background-color: #050505;
+    color: #e0f7fa;
+    font-family: 'Segoe UI', sans-serif;
+    margin: 0;
+    padding: 20px;
+    min-height: 100vh;
 }
 
 h1 {
-    margin-bottom: 10px;
-    color: #00e5ff;
-    text-shadow: 0 0 15px #00e5ff;
-    text-align: center;
-    letter-spacing: 2px;
+    margin-bottom: 10px;
+    color: #00e5ff;
+    text-shadow: 0 0 15px #00e5ff;
+    text-align: center;
+    letter-spacing: 2px;
 }
 
 #turn-indicator {
-    font-size: 20px;
-    font-weight: 600;
-    color: #fff;
-    margin-bottom: 20px;
-    text-shadow: 0 0 10px #0ff;
+    font-size: 20px;
+    font-weight: 600;
+    color: #fff;
+    margin-bottom: 20px;
+    text-shadow: 0 0 10px #0ff;
 }
 
 /* =============================
-   ♟️ Chessboard - CRITICAL FIXES HERE
-   ============================= */
+   ♟️ Chessboard - 5x5 GRID
+   ============================= */
 .board {
-    /* FIX 1: Set the main container as the 5x5 grid */
-    display: grid;
-    /* Define 5 columns, each 80px wide */
+    display: grid;
     grid-template-columns: repeat(5, 80px);
-    /* Define 5 rows, each 80px high */
     grid-template-rows: repeat(5, 80px);
-    /* Set dimensions explicitly */
-    width: 400px; /* 5 * 80px */
-    height: 400px; /* 5 * 80px */
-    
-    border: 3px solid #00e5ff;
-    border-radius: 12px;
-    box-shadow: 0 0 25px #00e5ff66;
-    overflow: hidden;
+    width: 400px;
+    height: 400px;
+    border: 3px solid #00e5ff;
+    border-radius: 12px;
+    box-shadow: 0 0 25px #00e5ff66;
+    overflow: hidden;
 }
-
-/* *** NOTE: The .row CSS block is completely removed to prevent conflict ***
-/* It is commented out here as a reminder to ensure it is NOT in your file. */
-/*
-.row {
-    display: grid;
-    grid-template-columns: repeat(5, 80px);
-}
-*/
 
 /* Each cell */
 .cell {
-    /* Dimensions are now controlled by the parent .board grid-template-rows/columns */
-    width: 100%; /* Inherit size from grid slot */
-    height: 100%; /* Inherit size from grid slot */
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    font-size: 32px;
-    font-weight: bold;
-    cursor: pointer;
-    transition: all 0.18s ease;
-    user-select: none;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 32px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.18s ease;
+    user-select: none;
 }
 
 /* Neon glowing pieces */
 .white-piece {
-    color: #e0f7fa;
-    text-shadow: 0 0 10px #00ffff, 0 0 20px #00ffff;
+    color: #e0f7fa;
+    text-shadow: 0 0 10px #00ffff, 0 0 20px #00ffff;
 }
 
 .black-piece {
-    color: #ff4de1;
-    text-shadow: 0 0 10px #ff0080, 0 0 20px #ff00ff;
+    color: #ff4de1;
+    text-shadow: 0 0 10px #ff0080, 0 0 20px #ff00ff;
 }
 
-/* Alternating board colors (dark neon tiles) */
-/* This logic targets cells based on their overall position in the 25-cell grid */
-
-/* Dark tiles */
-.cell:nth-child(10n + 1),
-.cell:nth-child(10n + 3),
-.cell:nth-child(10n + 5),
-.cell:nth-child(10n + 8),
-.cell:nth-child(10n + 10) {
-    background-color: #0a0a0a; 
+/* =============================
+   ♜ Checkerboard Pattern Fix
+   ============================= */
+/* Light and dark tiles alternate properly row-wise and column-wise */
+.cell:nth-child(odd) {
+    background-color: #0a0a0a;
 }
-
-/* Light tiles */
-.cell:nth-child(10n + 2),
-.cell:nth-child(10n + 4),
-.cell:nth-child(10n + 6),
-.cell:nth-child(10n + 7),
-.cell:nth-child(10n + 9) {
+.cell:nth-child(even) {
     background-color: #141414;
+}
+
+/* Now invert every second row to achieve true chess pattern */
+.cell:nth-child(n + 6):nth-child(-n + 10),
+.cell:nth-child(n + 16):nth-child(-n + 20) {
+    background-color: #141414;
+}
+.cell:nth-child(n + 6):nth-child(-n + 10):nth-child(even),
+.cell:nth-child(n + 16):nth-child(-n + 20):nth-child(even) {
+    background-color: #0a0a0a;
 }
 
 /* Hover highlight */
 .cell:hover {
-    transform: scale(1.05);
-    box-shadow: inset 0 0 10px #0ff, 0 0 10px #0ff;
+    transform: scale(1.05);
+    box-shadow: inset 0 0 10px #0ff, 0 0 10px #0ff;
 }
 
 /* Selected piece */
 .cell.selected {
-    background-color: #111;
-    box-shadow: 0 0 15px #ffeb3b, inset 0 0 10px #ffeb3b;
+    background-color: #111;
+    box-shadow: 0 0 15px #ffeb3b, inset 0 0 10px #ffeb3b;
 }
 
 /* Valid move: empty square */
 .cell.valid-move {
-    background-color: #092;
-    box-shadow: 0 0 12px #00ff99;
+    background-color: #092;
+    box-shadow: 0 0 12px #00ff99;
 }
 
 /* Valid move: capture (enemy) */
 .cell.valid-capture {
-    background-color: #500;
-    box-shadow: 0 0 15px #ff0044;
+    background-color: #500;
+    box-shadow: 0 0 15px #ff0044;
 }
 
 /* =============================
-   🕹️ Controls & Move History
-   ============================= */
+   🕹️ Controls & Move History
+   ============================= */
 .controls {
-    margin-top: 25px;
-    display: flex;
-    gap: 15px;
-    align-items: center;
+    margin-top: 25px;
+    display: flex;
+    gap: 15px;
+    align-items: center;
 }
 
 #resetBtn {
-    padding: 12px 28px;
-    font-size: 16px;
-    background: linear-gradient(135deg, #00e5ff, #0078ff);
-    border: none;
-    border-radius: 8px;
-    color: #fff;
-    font-weight: bold;
-    cursor: pointer;
-    box-shadow: 0 0 15px #00e5ff88;
-    transition: transform 0.2s, box-shadow 0.2s;
+    padding: 12px 28px;
+    font-size: 16px;
+    background: linear-gradient(135deg, #00e5ff, #0078ff);
+    border: none;
+    border-radius: 8px;
+    color: #fff;
+    font-weight: bold;
+    cursor: pointer;
+    box-shadow: 0 0 15px #00e5ff88;
+    transition: transform 0.2s, box-shadow 0.2s;
 }
 
 #resetBtn:hover {
-    transform: scale(1.1);
-    box-shadow: 0 0 25px #00ffff;
+    transform: scale(1.1);
+    box-shadow: 0 0 25px #00ffff;
 }
 
 /* Move history panel */
 #move-history-container {
-    margin-top: 30px;
-    background: #0d0d0d;
-    border: 2px solid #00e5ff;
-    border-radius: 10px;
-    padding: 12px 18px;
-    width: 300px;
-    max-height: 220px;
-    overflow-y: auto;
-    box-shadow: 0 0 15px #00e5ff44;
+    margin-top: 30px;
+    background: #0d0d0d;
+    border: 2px solid #00e5ff;
+    border-radius: 10px;
+    padding: 12px 18px;
+    width: 300px;
+    max-height: 220px;
+    overflow-y: auto;
+    box-shadow: 0 0 15px #00e5ff44;
 }
 
 #move-history-container h3 {
-    margin: 5px 0;
-    font-size: 18px;
-    color: #00e5ff;
-    text-align: center;
-    text-shadow: 0 0 10px #00ffff;
+    margin: 5px 0;
+    font-size: 18px;
+    color: #00e5ff;
+    text-align: center;
+    text-shadow: 0 0 10px #00ffff;
 }
 
 #move-history {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-    font-size: 15px;
-    color: #fff;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    font-size: 15px;
+    color: #fff;
 }
 
 #move-history li {
-    padding: 4px 0;
-    border-bottom: 1px solid #222;
+    padding: 4px 0;
+    border-bottom: 1px solid #222;
 }
