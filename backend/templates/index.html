@@ -1,58 +1,143 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>5x5 Neon Mini Chess</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>5x5 Neon Mini Chess</title>
+  <style>
+    body {
+      background-color: #000;
+      color: #0ff;
+      font-family: 'Segoe UI', sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+    }
+
+    h1 {
+      margin-bottom: 10px;
+      color: #0ff;
+      text-shadow: 0 0 10px #0ff;
+    }
+
+    .board {
+      display: grid;
+      grid-template-columns: repeat(5, 80px);
+      grid-template-rows: repeat(5, 80px);
+      border: 4px solid #0ff;
+      box-shadow: 0 0 20px #0ff;
+    }
+
+    .cell {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.2s ease;
+    }
+
+    /* 🟦 Alternate black-white color pattern */
+    .cell:nth-child(odd) {
+      background-color: #1a1a1a;
+    }
+    .cell:nth-child(even) {
+      background-color: #e0e0e0;
+    }
+
+    /* 🟩 Glow when selected */
+    .cell.selected {
+      box-shadow: 0 0 15px #0ff inset, 0 0 10px #0ff;
+    }
+
+    /* 🟨 Highlight valid moves */
+    .valid-move {
+      background-color: #0ff4;
+    }
+
+    /* 🟥 Highlight captures */
+    .valid-capture {
+      background-color: #f004;
+    }
+
+    .white-piece {
+      color: #fff;
+      text-shadow: 0 0 8px #0ff;
+    }
+
+    .black-piece {
+      color: #0ff;
+      text-shadow: 0 0 8px #fff;
+    }
+
+    #controls {
+      margin-top: 10px;
+      display: flex;
+      gap: 20px;
+      align-items: center;
+    }
+
+    #resetBtn {
+      background: #0ff;
+      color: #000;
+      border: none;
+      padding: 8px 16px;
+      font-weight: bold;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+
+    #resetBtn:hover {
+      background: #fff;
+    }
+
+    #move-history {
+      list-style: none;
+      padding: 0;
+      margin-top: 10px;
+      color: #0ff;
+      font-size: 14px;
+      height: 120px;
+      overflow-y: auto;
+      width: 300px;
+      border: 1px solid #0ff5;
+    }
+  </style>
 </head>
 <body>
-    <h1>5x5 Neon Mini Chess</h1>
 
-    <div id="turn-indicator">Turn: WHITE</div>
+  <h1>5x5 Neon Mini Chess</h1>
 
-    <!-- 🟩 5x5 Chessboard -->
-    <div class="board" role="grid" aria-label="5 by 5 chessboard">
-        <div class="cell black-piece" id="0-0" role="gridcell">K</div>
-        <div class="cell black-piece" id="0-1" role="gridcell">S</div>
-        <div class="cell black-piece" id="0-2" role="gridcell">S</div>
-        <div class="cell black-piece" id="0-3" role="gridcell">E</div>
-        <div class="cell black-piece" id="0-4" role="gridcell">H</div>
+  <div id="turn-indicator">Turn: WHITE</div>
 
-        <div class="cell black-piece" id="1-0" role="gridcell">S</div>
-        <div class="cell" id="1-1" role="gridcell"></div>
-        <div class="cell" id="1-2" role="gridcell"></div>
-        <div class="cell" id="1-3" role="gridcell"></div>
-        <div class="cell black-piece" id="1-4" role="gridcell">S</div>
+  <div class="board" id="chessboard">
+    <!-- 5x5 cells dynamically generated below -->
+  </div>
 
-        <div class="cell" id="2-0" role="gridcell"></div>
-        <div class="cell" id="2-1" role="gridcell"></div>
-        <div class="cell" id="2-2" role="gridcell"></div>
-        <div class="cell" id="2-3" role="gridcell"></div>
-        <div class="cell" id="2-4" role="gridcell"></div>
+  <div id="controls">
+    <button id="resetBtn">Reset</button>
+  </div>
 
-        <div class="cell white-piece" id="3-0" role="gridcell">S</div>
-        <div class="cell" id="3-1" role="gridcell"></div>
-        <div class="cell" id="3-2" role="gridcell"></div>
-        <div class="cell" id="3-3" role="gridcell"></div>
-        <div class="cell white-piece" id="3-4" role="gridcell">S</div>
+  <ul id="move-history"></ul>
 
-        <div class="cell white-piece" id="4-0" role="gridcell">H</div>
-        <div class="cell white-piece" id="4-1" role="gridcell">E</div>
-        <div class="cell white-piece" id="4-2" role="gridcell">S</div>
-        <div class="cell white-piece" id="4-3" role="gridcell">S</div>
-        <div class="cell white-piece" id="4-4" role="gridcell">K</div>
-    </div>
+  <script>
+    // === CREATE BOARD DYNAMICALLY ===
+    const board = document.getElementById('chessboard');
+    const boardSize = 5;
+    for (let r = 0; r < boardSize; r++) {
+      for (let c = 0; c < boardSize; c++) {
+        const cell = document.createElement('div');
+        cell.id = `${r}-${c}`;
+        cell.classList.add('cell');
+        board.appendChild(cell);
+      }
+    }
+  </script>
 
-    <div class="controls">
-        <button id="resetBtn">Reset Board</button>
-    </div>
-
-    <div id="move-history-container">
-        <h3>Move History</h3>
-        <ul id="move-history" aria-live="polite"></ul>
-    </div>
-
-    <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 </html>
