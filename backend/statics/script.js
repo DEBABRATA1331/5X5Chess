@@ -167,6 +167,55 @@ function attachClickHandlers(){
     };
   });
 }
+function movePiece(fromCell, toCell) {
+  if (!fromCell || !toCell) return;
+  const piece = getPiece(fromCell);
+  const captured = getPiece(toCell);
+  const owner = getPieceOwner(fromCell);
+
+  // Add captured piece to sidebar
+  if(captured){
+    const capturedDiv = owner==='white' ? document.getElementById('white-captured') : document.getElementById('black-captured');
+    const span = document.createElement('span');
+    span.textContent = captured;
+    span.style.marginRight='5px';
+    capturedDiv.appendChild(span);
+
+    // Optional: highlight capture
+    toCell.classList.add('capture');
+    setTimeout(()=>toCell.classList.remove('capture'),300);
+  }
+
+  // Move visually
+  toCell.textContent = piece;
+  toCell.classList.remove('white-piece','black-piece');
+  toCell.classList.add(owner + '-piece');
+  fromCell.textContent = '';
+  fromCell.classList.remove('white-piece','black-piece');
+
+  logMove(`${currentPlayer.toUpperCase()}: ${piece} ${fromCell.dataset.row}-${fromCell.dataset.col} → ${toCell.dataset.row}-${toCell.dataset.col}${captured ? ' (captured ' + captured + ')' : ''}`);
+
+  // King captured -> checkmate
+  if (captured === '♚' || captured === '♔') {
+    showCheckmate(currentPlayer);
+    return;
+  }
+
+  const mover = currentPlayer;
+  currentPlayer = currentPlayer === 'white' ? 'black' : 'white';
+  document.getElementById('turn-indicator').textContent = `${currentPlayer.toUpperCase()}'s turn`;
+
+  clearHighlights();
+  selectedCell = null;
+
+  if (getAllLegalMoves(currentPlayer).length === 0) {
+    showCheckmate(mover);
+    return;
+  }
+
+  if (currentPlayer === 'black') setTimeout(aiMakeMove, 400);
+}
+
 
 // -------------------- AI Move --------------------
 function aiMakeMove(){

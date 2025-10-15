@@ -29,6 +29,17 @@
 <h1>5x5 Neon Mini Chess</h1>
 <div id="turn-indicator">Status: Waiting to Start</div>
 <div class="board" id="chessboard"></div>
+<div style="display:flex; gap:20px; margin-top:10px;">
+  <div>
+    <div style="font-weight:bold; text-shadow:0 0 8px #0ff;">Captured by White:</div>
+    <div id="white-captured" style="min-height:40px; border:1px solid #0ff; padding:5px;"></div>
+  </div>
+  <div>
+    <div style="font-weight:bold; text-shadow:0 0 8px #0ff;">Captured by Black:</div>
+    <div id="black-captured" style="min-height:40px; border:1px solid #0ff; padding:5px;"></div>
+  </div>
+</div>
+
 
 <div id="controls">
   <button id="startBtn">Start</button>
