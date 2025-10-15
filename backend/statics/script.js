@@ -217,7 +217,7 @@ function movePiece(fromCell, toCell) {
 }
 
 
-// -------------------- Advanced AI Move with Full Priority Logic --------------------
+// -------------------- Advanced AI Move with Dynamic Priority & Repositioning --------------------
 function aiMakeMove() {
   if (!gameStarted || gamePaused || currentPlayer !== 'black') return;
 
@@ -238,37 +238,43 @@ function aiMakeMove() {
       t.textContent = fromText;
       p.textContent = '';
 
-      // --- Evaluate Board State After Move ---
+      // Evaluate king safety
       const futureAllCells = [...allCells];
       const futureAiPieces = futureAllCells.filter(c => getPieceOwner(c) === 'black' && getPiece(c));
       const kingCell = futureAiPieces.find(c => getPiece(c) === '♚');
-
-      // --- Danger Evaluation ---
-      const underAttack = futureAllCells.some(c => getPieceOwner(c) === 'white' && getValidMoves(c).includes(t));
       const kingUnderAttack = !kingCell ? false : [...futureAllCells].some(c => getPieceOwner(c) === 'white' && getValidMoves(c).includes(kingCell));
+
+      // Evaluate danger for moved piece
+      const underAttack = [...futureAllCells].some(c => getPieceOwner(c) === 'white' && getValidMoves(c).includes(t));
 
       // Undo simulation
       t.textContent = toText;
       p.textContent = fromText;
 
-      // --- Priority Scoring ---
+      // Base scoring
       let score = 0;
 
-      // 1️⃣ Capture opponent pieces (high priority)
-      if (toText && pieceMap[toText] === 'white') score += (valueMap[toText] || 1) * 10;
+      // 1️⃣ Capture priority
+      if (toText && pieceMap[toText] === 'white') {
+        const targetValue = valueMap[toText] || 1;
+        score += targetValue * (targetValue >= 5 ? 15 : 5); // high priority vs low priority
+      }
 
-      // 2️⃣ Avoid self-capture
-      if (underAttack) score -= (valueMap[piece] || 1) * 5;
+      // 2️⃣ Avoid self-capture (penalize)
+      if (underAttack) score -= (valueMap[piece] || 1) * 3;
 
-      // 3️⃣ Keep king safe
-      if (kingUnderAttack) score -= 1000; // absolute negative if king in danger
+      // 3️⃣ King safety (absolute)
+      if (kingUnderAttack) score -= 1000;
 
-      // 4️⃣ Prefer forward advancement (except pawns for AI)
+      // 4️⃣ Forward movement for minor pieces
       const dr = parseInt(t.dataset.row) - parseInt(p.dataset.row);
       score += dr * 0.3;
 
-      // 5️⃣ Piece protection / support
-      const adjacentAllies = [[-1,0],[1,0],[0,-1],[0,1]].reduce((acc,[dr,dc])=>{
+      // 5️⃣ Repositioning / retreating (sometimes prefer to move back if forward is unsafe)
+      if (dr < 0 && !toText) score += 0.5;
+
+      // 6️⃣ Support from adjacent allies
+      const support = [[-1,0],[1,0],[0,-1],[0,1]].reduce((acc,[dr,dc])=>{
         const r=parseInt(t.dataset.row)+dr, c=parseInt(t.dataset.col)+dc;
         if(isInBounds(r,c)){
           const cell=document.querySelector(`[data-row="${r}"][data-col="${c}"]`);
@@ -276,12 +282,12 @@ function aiMakeMove() {
         }
         return acc;
       },0);
-      score += adjacentAllies;
+      score += support;
 
-      // 6️⃣ Slight randomness for human-like behavior
-      score += Math.random() * 0.2;
+      // 7️⃣ Random factor
+      score += Math.random() * 0.5;
 
-      // --- Update Best Move ---
+      // Update best move
       if (score > bestScore) {
         bestScore = score;
         bestMove = { from: p, to: t };
@@ -289,7 +295,7 @@ function aiMakeMove() {
     });
   });
 
-  // --- Fallback: ensure AI always moves ---
+  // Fallback: pick any legal move to avoid AI freezing
   if (!bestMove) {
     const allLegal = [];
     aiPieces.forEach(p => getValidMoves(p).forEach(t => allLegal.push({ from: p, to: t })));
@@ -301,14 +307,10 @@ function aiMakeMove() {
     }
   }
 
-  // Execute move
-  if (bestMove) movePiece(bestMove.from, bestMove.to);
-}
-
-
   // Execute chosen move
   if (bestMove) movePiece(bestMove.from, bestMove.to);
 }
+
 
 // -------------------- Checkmate Overlay --------------------
 function showCheckmate(winner){
