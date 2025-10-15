@@ -10,7 +10,6 @@ const pieceMap = {
   '♗': 'white', // Bishop
   '♘': 'white', // Knight
   '♙': 'white', // Pawn
-
   '♚': 'black', // King
   '♛': 'black', // Queen
   '♜': 'black', // Rook
@@ -35,6 +34,7 @@ function clearHighlights() {
 }
 
 function highlightMoves(moves) {
+  clearHighlights();
   moves.forEach(cell => cell.classList.add('highlight'));
 }
 
@@ -76,7 +76,7 @@ function movePiece(fromCell, toCell) {
 
   currentPlayer = currentPlayer === 'white' ? 'black' : 'white';
   document.getElementById('status').textContent = `${currentPlayer.toUpperCase()}'s turn`;
-  
+
   clearHighlights();
   selectedCell = null;
 
@@ -114,17 +114,23 @@ function getValidMoves(cell) {
 
     case '♙': // White Pawn
       if (owner === 'white') {
-        tryAdd(row - 1, col);
-        tryAdd(row - 1, col - 1);
-        tryAdd(row - 1, col + 1);
+        const forward = document.querySelector(`[data-row="${row - 1}"][data-col="${col}"]`);
+        if (forward && !getPiece(forward)) moves.push(forward);
+        [-1, 1].forEach(dc => {
+          const diag = document.querySelector(`[data-row="${row - 1}"][data-col="${col + dc}"]`);
+          if (diag && getPieceOwner(diag) === 'black') moves.push(diag);
+        });
       }
       break;
 
     case '♟': // Black Pawn
       if (owner === 'black') {
-        tryAdd(row + 1, col);
-        tryAdd(row + 1, col - 1);
-        tryAdd(row + 1, col + 1);
+        const forward = document.querySelector(`[data-row="${row + 1}"][data-col="${col}"]`);
+        if (forward && !getPiece(forward)) moves.push(forward);
+        [-1, 1].forEach(dc => {
+          const diag = document.querySelector(`[data-row="${row + 1}"][data-col="${col + dc}"]`);
+          if (diag && getPieceOwner(diag) === 'white') moves.push(diag);
+        });
       }
       break;
 
@@ -138,32 +144,37 @@ function getValidMoves(cell) {
 
     case '♗': case '♝': // Bishop
       for (let d = 1; d < 5; d++) {
-        tryAdd(row + d, col + d);
-        tryAdd(row + d, col - d);
-        tryAdd(row - d, col + d);
-        tryAdd(row - d, col - d);
+        const dirs = [[d, d], [d, -d], [-d, d], [-d, -d]];
+        dirs.forEach(([dr, dc]) => {
+          const target = document.querySelector(`[data-row="${row + dr}"][data-col="${col + dc}"]`);
+          if (!target) return;
+          if (!getPiece(target)) moves.push(target);
+          else {
+            if (getPieceOwner(target) !== owner) moves.push(target);
+          }
+        });
       }
       break;
 
     case '♕': case '♛': // Queen
       for (let d = 1; d < 5; d++) {
-        tryAdd(row + d, col);
-        tryAdd(row - d, col);
-        tryAdd(row, col + d);
-        tryAdd(row, col - d);
-        tryAdd(row + d, col + d);
-        tryAdd(row + d, col - d);
-        tryAdd(row - d, col + d);
-        tryAdd(row - d, col - d);
+        [[d, 0], [-d, 0], [0, d], [0, -d], [d, d], [d, -d], [-d, d], [-d, -d]].forEach(([dr, dc]) => {
+          const target = document.querySelector(`[data-row="${row + dr}"][data-col="${col + dc}"]`);
+          if (!target) return;
+          if (!getPiece(target)) moves.push(target);
+          else if (getPieceOwner(target) !== owner) moves.push(target);
+        });
       }
       break;
 
     case '♖': case '♜': // Rook
       for (let d = 1; d < 5; d++) {
-        tryAdd(row + d, col);
-        tryAdd(row - d, col);
-        tryAdd(row, col + d);
-        tryAdd(row, col - d);
+        [[d, 0], [-d, 0], [0, d], [0, -d]].forEach(([dr, dc]) => {
+          const target = document.querySelector(`[data-row="${row + dr}"][data-col="${col + dc}"]`);
+          if (!target) return;
+          if (!getPiece(target)) moves.push(target);
+          else if (getPieceOwner(target) !== owner) moves.push(target);
+        });
       }
       break;
   }
@@ -195,7 +206,7 @@ document.querySelectorAll('.cell').forEach(cell => {
   });
 });
 
-// ------------------------ AI Logic (Moderate) ------------------------
+// ------------------------ AI Logic (Moderate Intelligence) ------------------------
 
 function aiMakeMove() {
   if (!gameStarted || gamePaused || currentPlayer !== 'black') return;
@@ -203,6 +214,7 @@ function aiMakeMove() {
   const allCells = [...document.querySelectorAll('.cell')];
   const aiPieces = allCells.filter(c => getPieceOwner(c) === 'black' && getPiece(c) !== '');
 
+  const valueMap = { '♔': 10, '♕': 9, '♖': 5, '♗': 3, '♘': 3, '♙': 1 };
   let bestMove = null;
   let bestScore = -Infinity;
 
@@ -212,13 +224,26 @@ function aiMakeMove() {
       const target = getPiece(move);
       let score = 0;
       if (target && pieceMap[target] === 'white') {
-        // Prioritize captures (higher score for stronger pieces)
-        const valueMap = { '♔': 10, '♕': 9, '♖': 5, '♗': 3, '♘': 3, '♙': 1 };
         score = valueMap[target] || 1;
       } else if (parseInt(move.dataset.row) > parseInt(pieceCell.dataset.row)) {
-        // Encourage forward movement
-        score = 0.5;
+        score = 0.3;
       }
+      // discourage moving into immediate attack range
+      const testPiece = getPiece(pieceCell);
+      const old = move.textContent;
+      move.textContent = testPiece;
+      pieceCell.textContent = '';
+      const danger = allCells.some(c => {
+        if (getPieceOwner(c) === 'white') {
+          const vm = getValidMoves(c);
+          return vm.includes(move);
+        }
+        return false;
+      });
+      score -= danger ? 5 : 0;
+      // undo
+      pieceCell.textContent = testPiece;
+      move.textContent = old;
 
       if (score > bestScore) {
         bestScore = score;
@@ -227,10 +252,8 @@ function aiMakeMove() {
     });
   });
 
-  if (bestMove) {
-    movePiece(bestMove.from, bestMove.to);
-  } else {
-    // fallback random move
+  if (bestMove) movePiece(bestMove.from, bestMove.to);
+  else {
     const randPiece = aiPieces[Math.floor(Math.random() * aiPieces.length)];
     const moves = getValidMoves(randPiece);
     if (moves.length > 0) movePiece(randPiece, moves[Math.floor(Math.random() * moves.length)]);
