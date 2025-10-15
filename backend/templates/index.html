@@ -9,63 +9,45 @@
 <body>
     <h1>5x5 Neon Mini Chess</h1>
 
-    <!-- Turn Indicator -->
     <div id="turn-indicator">Turn: WHITE</div>
 
-    <!-- Chess Board -->
     <div class="board" role="grid" aria-label="5 by 5 chessboard">
-        <!-- Row 0 (Black side) -->
-        <div class="row" role="row">
-            <div class="cell black-piece" id="0-0" role="gridcell">K</div>
-            <div class="cell black-piece" id="0-1" role="gridcell">S</div>
-            <div class="cell black-piece" id="0-2" role="gridcell">S</div>
-            <div class="cell black-piece" id="0-3" role="gridcell">E</div>
-            <div class="cell black-piece" id="0-4" role="gridcell">H</div>
-        </div>
+        
+        <div class="cell black-piece" id="0-0" role="gridcell">K</div>
+        <div class="cell black-piece" id="0-1" role="gridcell">S</div>
+        <div class="cell black-piece" id="0-2" role="gridcell">S</div>
+        <div class="cell black-piece" id="0-3" role="gridcell">E</div>
+        <div class="cell black-piece" id="0-4" role="gridcell">H</div>
 
-        <!-- Row 1 -->
-        <div class="row" role="row">
-            <div class="cell black-piece" id="1-0" role="gridcell">S</div>
-            <div class="cell" id="1-1" role="gridcell"></div>
-            <div class="cell" id="1-2" role="gridcell"></div>
-            <div class="cell" id="1-3" role="gridcell"></div>
-            <div class="cell black-piece" id="1-4" role="gridcell">S</div>
-        </div>
+        <div class="cell black-piece" id="1-0" role="gridcell">S</div>
+        <div class="cell" id="1-1" role="gridcell"></div>
+        <div class="cell" id="1-2" role="gridcell"></div>
+        <div class="cell" id="1-3" role="gridcell"></div>
+        <div class="cell black-piece" id="1-4" role="gridcell">S</div>
 
-        <!-- Row 2 (Empty middle row) -->
-        <div class="row" role="row">
-            <div class="cell" id="2-0" role="gridcell"></div>
-            <div class="cell" id="2-1" role="gridcell"></div>
-            <div class="cell" id="2-2" role="gridcell"></div>
-            <div class="cell" id="2-3" role="gridcell"></div>
-            <div class="cell" id="2-4" role="gridcell"></div>
-        </div>
+        <div class="cell" id="2-0" role="gridcell"></div>
+        <div class="cell" id="2-1" role="gridcell"></div>
+        <div class="cell" id="2-2" role="gridcell"></div>
+        <div class="cell" id="2-3" role="gridcell"></div>
+        <div class="cell" id="2-4" role="gridcell"></div>
 
-        <!-- Row 3 -->
-        <div class="row" role="row">
-            <div class="cell white-piece" id="3-0" role="gridcell">S</div>
-            <div class="cell" id="3-1" role="gridcell"></div>
-            <div class="cell" id="3-2" role="gridcell"></div>
-            <div class="cell" id="3-3" role="gridcell"></div>
-            <div class="cell white-piece" id="3-4" role="gridcell">S</div>
-        </div>
+        <div class="cell white-piece" id="3-0" role="gridcell">S</div>
+        <div class="cell" id="3-1" role="gridcell"></div>
+        <div class="cell" id="3-2" role="gridcell"></div>
+        <div class="cell" id="3-3" role="gridcell"></div>
+        <div class="cell white-piece" id="3-4" role="gridcell">S</div>
 
-        <!-- Row 4 (White side) -->
-        <div class="row" role="row">
-            <div class="cell white-piece" id="4-0" role="gridcell">H</div>
-            <div class="cell white-piece" id="4-1" role="gridcell">E</div>
-            <div class="cell white-piece" id="4-2" role="gridcell">S</div>
-            <div class="cell white-piece" id="4-3" role="gridcell">S</div>
-            <div class="cell white-piece" id="4-4" role="gridcell">K</div>
-        </div>
+        <div class="cell white-piece" id="4-0" role="gridcell">H</div>
+        <div class="cell white-piece" id="4-1" role="gridcell">E</div>
+        <div class="cell white-piece" id="4-2" role="gridcell">S</div>
+        <div class="cell white-piece" id="4-3" role="gridcell">S</div>
+        <div class="cell white-piece" id="4-4" role="gridcell">K</div>
     </div>
 
-    <!-- Controls -->
     <div class="controls">
         <button id="resetBtn">Reset Board</button>
     </div>
 
-    <!-- Move History -->
     <div id="move-history-container">
         <h3>Move History</h3>
         <ul id="move-history" aria-live="polite"></ul>
