@@ -47,14 +47,16 @@ let gamePaused = false;
 
 const pieceMap = {
   '♔': 'white', '♕': 'white', '♖': 'white', '♗': 'white', '♘': 'white', '♙': 'white',
-  '♚': 'black', '♛': 'black', '♜': 'black', '♝': 'black', '♞': 'black', '♟': 'black'
+  '♚': 'black', '♛': 'black', '♝': 'black', '♞': 'black', '♟': 'black'
 };
 
 // ---------- Board Setup ----------
 const board = document.getElementById('chessboard');
 const boardSize = 5;
-const whitePieces = ['♖','♘','♗','♕','♔'];
-const blackPieces = ['♜','♞','♝','♛','♚'];
+
+// Updated pieces layout
+const whitePieces = ['♙','♘','♔','♗','♙'];
+const blackPieces = ['♟','♝','♚','♞','♟'];
 
 function createBoard(){
   board.innerHTML='';
@@ -100,11 +102,20 @@ function getValidMoves(cell){
   const moves=[];
   const add=(nr,nc)=>{if(!isInBounds(nr,nc)) return; const t=document.querySelector(`[data-row="${nr}"][data-col="${nc}"]`); if(t && getPieceOwner(t)!==owner) moves.push(t);};
 
+  // Pawns
   if(piece==='♙'){ const f=document.querySelector(`[data-row="${r-1}"][data-col="${c}"]`); if(f&&!getPiece(f)) moves.push(f); [[-1,-1],[-1,1]].forEach(([dr,dc])=>{ const t=document.querySelector(`[data-row="${r+dr}"][data-col="${c+dc}"]`); if(t&&getPieceOwner(t)=='black') moves.push(t); }); return moves; }
   if(piece==='♟'){ const f=document.querySelector(`[data-row="${r+1}"][data-col="${c}"]`); if(f&&!getPiece(f)) moves.push(f); [[1,-1],[1,1]].forEach(([dr,dc])=>{ const t=document.querySelector(`[data-row="${r+dr}"][data-col="${c+dc}"]`); if(t&&getPieceOwner(t)=='white') moves.push(t); }); return moves; }
+
+  // Knight
   if(piece==='♘'||piece==='♞'){ [[2,1],[2,-1],[-2,1],[-2,-1],[1,2],[1,-2],[-1,2],[-1,-2]].forEach(([dr,dc])=>add(r+dr,c+dc)); return moves; }
+
+  // Bishop / Queen diagonals
   if(['♗','♝','♕','♛'].includes(piece)){ [[1,1],[1,-1],[-1,1],[-1,-1]].forEach(([dr,dc])=>{ let nr=r+dr,nc=c+dc; while(isInBounds(nr,nc)){ const t=document.querySelector(`[data-row="${nr}"][data-col="${nc}"]`); if(!t) break; if(!getPiece(t)){ moves.push(t); nr+=dr; nc+=dc; } else { if(getPieceOwner(t)!==owner) moves.push(t); break; } } }); }
+
+  // Rook / Queen straight
   if(['♖','♜','♕','♛'].includes(piece)){ [[1,0],[-1,0],[0,1],[0,-1]].forEach(([dr,dc])=>{ let nr=r+dr,nc=c+dc; while(isInBounds(nr,nc)){ const t=document.querySelector(`[data-row="${nr}"][data-col="${nc}"]`); if(!t) break; if(!getPiece(t)){ moves.push(t); nr+=dr; nc+=dc; } else { if(getPieceOwner(t)!==owner) moves.push(t); break; } } }); }
+
+  // King
   if(piece==='♔'||piece==='♚'){ for(let dr=-1;dr<=1;dr++) for(let dc=-1;dc<=1;dc++) if(dr||dc) add(r+dr,c+dc); }
 
   return moves;
@@ -145,7 +156,6 @@ function movePiece(from,to){
   clearHighlights();
   selectedCell=null;
 
-  // Opponent no legal moves -> checkmate
   if(getAllLegalMoves(currentPlayer).length===0){ showCheckmate(currentPlayer==='white'?'black':'white'); return; }
 
   if(currentPlayer==='black') setTimeout(aiMove,500);
@@ -204,9 +214,21 @@ function showCheckmate(winner){
 }
 
 // ---------- Buttons ----------
-document.getElementById('startBtn').onclick=()=>{ gameStarted=true; gamePaused=false; currentPlayer='white'; document.getElementById('turn-indicator').textContent='Turn: WHITE'; startBtn.disabled=true; pauseBtn.disabled=false; };
-document.getElementById('pauseBtn').onclick=()=>{ gamePaused=true; document.getElementById('turn-indicator').textContent='Game Paused'; };
-document.getElementById('resetBtn').onclick=()=>{ createBoard(); moveHistory.innerHTML=''; gameStarted=false; gamePaused=false; selectedCell=null; currentPlayer='white'; startBtn.disabled=false; pauseBtn.disabled=true; document.getElementById('turn-indicator').textContent='Status: Waiting to Start'; };
+const startBtn=document.getElementById('startBtn');
+const pauseBtn=document.getElementById('pauseBtn');
+
+startBtn.onclick=()=>{
+  gameStarted=true; gamePaused=false; currentPlayer='white';
+  document.getElementById('turn-indicator').textContent='Turn: WHITE';
+  startBtn.disabled=true; pauseBtn.disabled=false;
+};
+pauseBtn.onclick=()=>{
+  gamePaused=true; document.getElementById('turn-indicator').textContent='Game Paused';
+};
+document.getElementById('resetBtn').onclick=()=>{
+  createBoard(); moveHistory.innerHTML=''; gameStarted=false; gamePaused=false; selectedCell=null; currentPlayer='white';
+  startBtn.disabled=false; pauseBtn.disabled=true; document.getElementById('turn-indicator').textContent='Status: Waiting to Start';
+};
 
 // ---------- Initialize ----------
 createBoard();
