@@ -28,50 +28,6 @@ function highlightMoves(moves) {
   });
 }
 
-// -------------------- Game Control --------------------
-function startGame() {
-  gameStarted = true;
-  gamePaused = false;
-  document.getElementById('status').textContent = "Game Started — White’s turn ♔";
-}
-
-function pauseGame() {
-  gamePaused = true;
-  document.getElementById('status').textContent = "Game Paused";
-}
-
-function logMove(text) {
-  const log = document.getElementById('move-history');
-  const li = document.createElement('li');
-  li.textContent = text;
-  log.appendChild(li);
-  log.scrollTop = log.scrollHeight;
-}
-
-// -------------------- Checkmate --------------------
-function showCheckmate(winner) {
-  gameStarted = false;
-  const overlay = document.createElement('div');
-  overlay.id = 'checkmate-overlay';
-  Object.assign(overlay.style, {
-    position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
-    background: 'rgba(0,0,0,0.6)', zIndex: 9999, color: '#0ff', fontSize: 'clamp(1.5rem, 3vw, 3rem)',
-    textAlign: 'center', flexDirection: 'column', gap: '1rem'
-  });
-  overlay.innerHTML = `
-    <div style="padding:20px 30px; border:3px solid #0ff; box-shadow:0 0 30px #0ff; border-radius:12px;">
-      <div style="font-weight:900;">♟ CHECKMATE</div>
-      <div style="margin-top:8px;">${winner.toUpperCase()} WINS</div>
-      <button id="cm-restart" style="margin-top:12px;padding:10px 18px;border-radius:10px;border:none;cursor:pointer;font-weight:bold;">Restart</button>
-    </div>
-  `;
-  document.body.appendChild(overlay);
-  document.getElementById('cm-restart').onclick = () => {
-    document.body.removeChild(overlay);
-    window.location.reload();
-  };
-}
-
 // -------------------- Move Handling --------------------
 function movePiece(fromCell, toCell) {
   if (!fromCell || !toCell) return;
@@ -96,7 +52,7 @@ function movePiece(fromCell, toCell) {
 
   const mover = currentPlayer;
   currentPlayer = currentPlayer === 'white' ? 'black' : 'white';
-  document.getElementById('status').textContent = `${currentPlayer.toUpperCase()}'s turn`;
+  document.getElementById('turn-indicator').textContent = `${currentPlayer.toUpperCase()}'s turn`;
 
   clearHighlights();
   selectedCell = null;
@@ -212,7 +168,7 @@ function attachClickHandlers(){
   });
 }
 
-// -------------------- AI Move (Smarter & Human-like) --------------------
+// -------------------- AI Move --------------------
 function aiMakeMove(){
   if(!gameStarted || gamePaused || currentPlayer!=='black') return;
   const all=[...document.querySelectorAll('.cell')];
@@ -225,14 +181,11 @@ function aiMakeMove(){
     getValidMoves(p).forEach(t=>{
       let score=0;
       const target=getPiece(t);
-      if(target && pieceMap[target]==='white') score+=(valueMap[target]||1)*10;  // Capture value
+      if(target && pieceMap[target]==='white') score+=(valueMap[target]||1)*10;
       const dr=parseInt(t.dataset.row)-parseInt(p.dataset.row);
-      if(dr>0) score+=0.5;  // Forward preference
+      if(dr>0) score+=0.5;
+      score += Math.random()*0.5; // random human-like
 
-      // Slight randomness to simulate human hesitation
-      score += Math.random()*0.5;
-
-      // Avoid moving into danger
       const fromText=getPiece(p),toText=getPiece(t);
       p.textContent=''; t.textContent=fromText;
       const danger=[...document.querySelectorAll('.cell')].some(c=>getPieceOwner(c)==='white' && getValidMoves(c).includes(t));
@@ -254,13 +207,41 @@ function aiMakeMove(){
   }
 }
 
+// -------------------- Checkmate Overlay --------------------
+function showCheckmate(winner){
+  gameStarted=false;
+  const overlay=document.createElement('div');
+  overlay.id='checkmate-overlay';
+  Object.assign(overlay.style,{ position:'fixed', inset:0, display:'flex', alignItems:'center', justifyContent:'center', background:'rgba(0,0,0,0.6)', zIndex:9999, color:'#0ff', fontSize:'clamp(1.5rem,3vw,3rem)', textAlign:'center', flexDirection:'column', gap:'1rem' });
+  overlay.innerHTML=`
+    <div style="padding:20px 30px; border:3px solid #0ff; box-shadow:0 0 30px #0ff; border-radius:12px;">
+      <div style="font-weight:900;">♟ CHECKMATE</div>
+      <div style="margin-top:8px;">${winner.toUpperCase()} WINS</div>
+      <button id="cm-restart" style="margin-top:12px;padding:10px 18px;border-radius:10px;border:none;cursor:pointer;font-weight:bold;">Restart</button>
+    </div>`;
+  document.body.appendChild(overlay);
+  document.getElementById('cm-restart').onclick=()=>window.location.reload();
+}
+
+// -------------------- Logging --------------------
+function logMove(text){
+  const log=document.getElementById('move-history');
+  const li=document.createElement('li');
+  li.textContent=text;
+  log.appendChild(li);
+  log.scrollTop=log.scrollHeight;
+}
+
 // -------------------- Initialization --------------------
 function initGameBindings(){
-  const start=document.getElementById('startBtn');
-  if(start) start.onclick=startGame;
-  const pause=document.getElementById('pauseBtn');
-  if(pause) pause.onclick=pauseGame;
-  const reset=document.getElementById('resetBtn');
-  if(reset) reset.onclick=()=>window.location.reload();
   attachClickHandlers();
+  document.getElementById('startBtn').onclick = () => {
+    gameStarted=true; gamePaused=false; currentPlayer='white';
+    document.getElementById('turn-indicator').textContent="WHITE's turn ♔";
+  };
+  document.getElementById('pauseBtn').onclick = () => { gamePaused=true; document.getElementById('turn-indicator').textContent="Game Paused"; };
+  document.getElementById('resetBtn').onclick = () => window.location.reload();
 }
+
+// -------------------- Run --------------------
+initGameBindings();
