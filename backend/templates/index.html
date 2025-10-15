@@ -35,13 +35,13 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 28px;
+      font-size: 36px;
       cursor: pointer;
       user-select: none;
       transition: all 0.2s ease;
     }
 
-    /* 🟦 Alternate black-white color pattern */
+    /* Alternate black-white color pattern */
     .cell:nth-child(odd) {
       background-color: #1a1a1a;
     }
@@ -49,19 +49,8 @@
       background-color: #e0e0e0;
     }
 
-    /* 🟩 Glow when selected */
     .cell.selected {
       box-shadow: 0 0 15px #0ff inset, 0 0 10px #0ff;
-    }
-
-    /* 🟨 Highlight valid moves */
-    .valid-move {
-      background-color: #0ff4;
-    }
-
-    /* 🟥 Highlight captures */
-    .valid-capture {
-      background-color: #f004;
     }
 
     .white-piece {
@@ -115,9 +104,7 @@
 
   <div id="turn-indicator">Turn: WHITE</div>
 
-  <div class="board" id="chessboard">
-    <!-- 5x5 cells dynamically generated below -->
-  </div>
+  <div class="board" id="chessboard"></div>
 
   <div id="controls">
     <button id="resetBtn">Reset</button>
@@ -126,17 +113,40 @@
   <ul id="move-history"></ul>
 
   <script>
-    // === CREATE BOARD DYNAMICALLY ===
     const board = document.getElementById('chessboard');
     const boardSize = 5;
-    for (let r = 0; r < boardSize; r++) {
-      for (let c = 0; c < boardSize; c++) {
-        const cell = document.createElement('div');
-        cell.id = `${r}-${c}`;
-        cell.classList.add('cell');
-        board.appendChild(cell);
+
+    // Piece arrangement
+    const whitePieces = ['♙', '♘', '♕', '♗', '♙'];
+    const blackPieces = ['♙', '♗', '♕', '♘', '♙']; // mirror order of white
+
+    function createBoard() {
+      board.innerHTML = ''; // Clear board
+
+      for (let r = 0; r < boardSize; r++) {
+        for (let c = 0; c < boardSize; c++) {
+          const cell = document.createElement('div');
+          cell.id = `${r}-${c}`;
+          cell.classList.add('cell');
+
+          // Set pieces
+          if (r === 0) { // top row → black
+            cell.textContent = blackPieces[c];
+            cell.classList.add('black-piece');
+          } else if (r === 4) { // bottom row → white
+            cell.textContent = whitePieces[c];
+            cell.classList.add('white-piece');
+          }
+
+          board.appendChild(cell);
+        }
       }
     }
+
+    document.getElementById('resetBtn').addEventListener('click', createBoard);
+
+    // Initialize board on load
+    createBoard();
   </script>
 
 </body>
