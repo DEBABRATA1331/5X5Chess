@@ -1,324 +1,158 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>5x5 Neon Mini Chess</title>
-  <style>
-    body {
-      background-color: #000;
-      color: #0ff;
-      font-family: 'Segoe UI', sans-serif;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
-      margin: 0;
-    }
-
-    h1 {
-      margin-bottom: 10px;
-      color: #0ff;
-      text-shadow: 0 0 10px #0ff;
-    }
-
-    .board {
-      display: grid;
-      grid-template-columns: repeat(5, 80px);
-      grid-template-rows: repeat(5, 80px);
-      border: 4px solid #0ff;
-      box-shadow: 0 0 20px #0ff;
-    }
-
-    .cell {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 36px;
-      cursor: pointer;
-      user-select: none;
-      transition: all 0.2s ease;
-    }
-
-    .cell:nth-child(odd) {
-      background-color: #1a1a1a;
-    }
-    .cell:nth-child(even) {
-      background-color: #e0e0e0;
-    }
-
-    .highlight {
-      box-shadow: 0 0 15px #0ff inset, 0 0 10px #0ff;
-    }
-
-    .white-piece {
-      color: #fff;
-      text-shadow: 0 0 8px #0ff;
-    }
-
-    .black-piece {
-      color: #000;
-      text-shadow: 0 0 8px #0ff;
-    }
-
-    #controls {
-      margin-top: 15px;
-      display: flex;
-      gap: 20px;
-      align-items: center;
-    }
-
-    button {
-      background: #0ff;
-      color: #000;
-      border: none;
-      padding: 8px 16px;
-      font-weight: bold;
-      border-radius: 10px;
-      cursor: pointer;
-      transition: 0.2s;
-    }
-
-    button:hover {
-      background: #fff;
-    }
-
-    #move-history {
-      list-style: none;
-      padding: 8px;
-      margin-top: 10px;
-      color: #0ff;
-      font-size: 14px;
-      height: 120px;
-      overflow-y: auto;
-      width: 300px;
-      border: 1px solid #0ff5;
-      white-space: pre-wrap;
-      text-align: left;
-    }
-
-    #status {
-      margin-bottom: 10px;
-      font-weight: bold;
-      text-shadow: 0 0 8px #0ff;
-    }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>5x5 Neon Mini Chess</title>
+<style>
+  body { background:#000; color:#0ff; font-family:'Segoe UI', sans-serif; display:flex; flex-direction:column; align-items:center; margin:0; padding:0; }
+  h1 { text-shadow:0 0 10px #0ff; }
+  .board { display:grid; grid-template-columns:repeat(5,80px); grid-template-rows:repeat(5,80px); border:4px solid #0ff; box-shadow:0 0 20px #0ff; }
+  .cell { display:flex; align-items:center; justify-content:center; font-size:36px; cursor:pointer; user-select:none; transition:0.2s; }
+  .cell:nth-child(odd) { background:#1a1a1a; }
+  .cell:nth-child(even) { background:#111; }
+  .white-piece { color:#fff; text-shadow:0 0 8px #0ff; }
+  .black-piece { color:#000; text-shadow:0 0 8px #0ff; }
+  .highlight { box-shadow:0 0 15px #0ff inset; }
+  .capture { box-shadow:0 0 20px red inset; }
+  #controls { margin:10px; display:flex; gap:10px; }
+  button { background:#0ff; color:#000; border:none; padding:6px 12px; border-radius:8px; cursor:pointer; font-weight:bold; }
+  button:hover { background:#fff; }
+  #move-history { width:300px; height:120px; overflow-y:auto; border:1px solid #0ff5; margin-top:10px; padding:5px; font-size:14px; }
+  #turn-indicator { font-weight:bold; text-shadow:0 0 8px #0ff; margin-bottom:5px; }
+</style>
 </head>
 <body>
+<h1>5x5 Neon Mini Chess</h1>
+<div id="turn-indicator">Status: Waiting to Start</div>
+<div class="board" id="chessboard"></div>
 
-  <h1>5x5 Neon Mini Chess</h1>
-  <div id="status">Status: Waiting to Start</div>
+<div id="controls">
+  <button id="startBtn">Start</button>
+  <button id="playBtn" disabled>Play</button>
+  <button id="pauseBtn" disabled>Pause</button>
+  <button id="resetBtn">Reset</button>
+</div>
+<ul id="move-history"></ul>
 
-  <div class="board" id="chessboard"></div>
+<script>
+const board = document.getElementById('chessboard');
+const boardSize = 5;
+const whitePieces = ['♙','♘','♕','♗','♙'];
+const blackPieces = ['♙','♗','♕','♘','♙']; // mirror
+let gameStarted=false, gamePaused=false, selectedCell=null, turn="WHITE";
 
-  <div id="controls">
-    <button onclick="startGame()">Start</button>
-    <button onclick="pauseGame()">Pause</button>
-    <button onclick="resetBoard()">Reset</button>
-  </div>
+// ---------- Create board ----------
+function createBoard() {
+  board.innerHTML='';
+  for(let r=0;r<boardSize;r++){
+    for(let c=0;c<boardSize;c++){
+      const cell=document.createElement('div');
+      cell.id=`${r}-${c}`;
+      cell.dataset.row=r;
+      cell.dataset.col=c;
+      cell.classList.add('cell');
+      cell.addEventListener('click',()=>onCellClick(cell,r,c));
 
-  <pre id="move-history"></pre>
+      if(r===0){cell.textContent=blackPieces[c]; cell.classList.add('black-piece');}
+      if(r===4){cell.textContent=whitePieces[c]; cell.classList.add('white-piece');}
 
-  <script>
-    const board = document.getElementById('chessboard');
-
-    let selectedCell = null;
-    let currentPlayer = 'white';
-    let gameStarted = false;
-    let gamePaused = false;
-
-    const pieceMap = {
-      '♔': 'white', '♕': 'white', '♖': 'white', '♗': 'white', '♘': 'white', '♙': 'white',
-      '♚': 'black', '♛': 'black', '♜': 'black', '♝': 'black', '♞': 'black', '♟': 'black'
-    };
-
-    // ------------------------ Board Setup ------------------------
-    function createBoard() {
-      board.innerHTML = '';
-      const whiteRow = ['♖', '♘', '♕', '♗', '♔'];
-      const blackRow = ['♚', '♝', '♛', '♞', '♜'];
-      for (let r = 0; r < 5; r++) {
-        for (let c = 0; c < 5; c++) {
-          const cell = document.createElement('div');
-          cell.classList.add('cell');
-          cell.dataset.row = r;
-          cell.dataset.col = c;
-          if (r === 0) {
-            cell.textContent = blackRow[c];
-            cell.classList.add('black-piece');
-          } else if (r === 1) {
-            cell.textContent = '♟';
-            cell.classList.add('black-piece');
-          } else if (r === 3) {
-            cell.textContent = '♙';
-            cell.classList.add('white-piece');
-          } else if (r === 4) {
-            cell.textContent = whiteRow[c];
-            cell.classList.add('white-piece');
-          }
-          board.appendChild(cell);
-        }
-      }
+      board.appendChild(cell);
     }
+  }
+}
 
-    // ------------------------ Utility ------------------------
-    function getPiece(cell) { return cell.textContent.trim(); }
-    function getPieceOwner(cell) { const p = getPiece(cell); return pieceMap[p] || null; }
-    function clearHighlights() { document.querySelectorAll('.cell').forEach(c => c.classList.remove('highlight')); }
-    function highlightMoves(moves) { moves.forEach(cell => cell.classList.add('highlight')); }
-    function isInBounds(r, c) { return r >= 0 && r < 5 && c >= 0 && c < 5; }
+// ---------- Highlight moves ----------
+function clearHighlights(){document.querySelectorAll('.cell').forEach(c=>c.classList.remove('highlight','capture'));}
+function highlightMoves(moves){clearHighlights(); moves.forEach(c=>{if(!c) return; c.classList.add(getPiece(c)?'capture':'highlight');});}
 
-    // ------------------------ Game Control ------------------------
-    function startGame() {
-      gameStarted = true;
-      gamePaused = false;
-      document.getElementById('status').textContent = "Game Started — White’s turn ♔";
-    }
+// ---------- Piece helpers ----------
+function getPiece(cell){return cell?cell.textContent.trim():'';}
+function getPieceOwner(cell){const p=getPiece(cell); if(['♙','♘','♕','♗','♔'].includes(p)) return 'white'; if(['♟','♞','♛','♝','♚'].includes(p)) return 'black'; return null;}
+function isInBounds(r,c){return r>=0 && r<5 && c>=0 && c<5;}
 
-    function pauseGame() {
-      gamePaused = true;
-      document.getElementById('status').textContent = "Game Paused ⏸️";
-    }
+// ---------- Movement logic ----------
+function getValidMoves(cell){
+  const piece=getPiece(cell), owner=getPieceOwner(cell);
+  if(!piece||!owner) return [];
+  const r=parseInt(cell.dataset.row), c=parseInt(cell.dataset.col);
+  const moves=[];
+  const add=(nr,nc)=>{if(!isInBounds(nr,nc))return; const target=document.querySelector(`[data-row="${nr}"][data-col="${nc}"]`); if(target&&getPieceOwner(target)!==owner) moves.push(target);};
 
-    function resetBoard() {
-      createBoard();
-      selectedCell = null;
-      currentPlayer = 'white';
-      gameStarted = false;
-      gamePaused = false;
-      document.getElementById('move-history').textContent = '';
-      document.getElementById('status').textContent = "Status: Waiting to Start";
-      attachHandlers();
-    }
+  if(piece==='♙'){ // white pawn
+    const f=document.querySelector(`[data-row="${r-1}"][data-col="${c}"]`); if(f&&!getPiece(f)) moves.push(f);
+    [[-1,-1],[-1,1]].forEach(([dr,dc])=>{const t=document.querySelector(`[data-row="${r+dr}"][data-col="${c+dc}"]`); if(t&&getPieceOwner(t)=='black') moves.push(t);});
+    return moves;
+  }
+  if(piece==='♟'){ // black pawn
+    const f=document.querySelector(`[data-row="${r+1}"][data-col="${c}"]`); if(f&&!getPiece(f)) moves.push(f);
+    [[1,-1],[1,1]].forEach(([dr,dc])=>{const t=document.querySelector(`[data-row="${r+dr}"][data-col="${c+dc}"]`); if(t&&getPieceOwner(t)=='white') moves.push(t);});
+    return moves;
+  }
+  if(piece==='♘'||piece==='♞'){ // knight
+    [[2,1],[2,-1],[-2,1],[-2,-1],[1,2],[1,-2],[-1,2],[-1,-2]].forEach(([dr,dc])=>add(r+dr,c+dc));
+    return moves;
+  }
+  if(['♗','♝','♕','♛'].includes(piece)){ // bishop & queen diagonal
+    const dirs=[[1,1],[1,-1],[-1,1],[-1,-1]]; dirs.forEach(([dr,dc])=>{let nr=r+dr,nc=c+dc; while(isInBounds(nr,nc)){const t=document.querySelector(`[data-row="${nr}"][data-col="${nc}"]`); if(!t) break; if(!getPiece(t)){moves.push(t); nr+=dr; nc+=dc; } else { if(getPieceOwner(t)!==owner) moves.push(t); break;}}});
+  }
+  if(['♖','♜','♕','♛'].includes(piece)){ // rook & queen straight
+    const dirs=[[1,0],[-1,0],[0,1],[0,-1]]; dirs.forEach(([dr,dc])=>{let nr=r+dr,nc=c+dc; while(isInBounds(nr,nc)){const t=document.querySelector(`[data-row="${nr}"][data-col="${nc}"]`); if(!t) break; if(!getPiece(t)){moves.push(t); nr+=dr; nc+=dc; } else { if(getPieceOwner(t)!==owner) moves.push(t); break;}}});
+  }
+  if(piece==='♔'||piece==='♚'){for(let dr=-1;dr<=1;dr++) for(let dc=-1;dc<=1;dc++) if(dr||dc)add(r+dr,c+dc);}
+  return moves;
+}
 
-    // ------------------------ Move Logic ------------------------
-    function movePiece(fromCell, toCell) {
-      const piece = getPiece(fromCell);
-      const captured = getPiece(toCell);
-      toCell.textContent = piece;
-      toCell.className = fromCell.className;
-      fromCell.textContent = '';
-      fromCell.className = 'cell';
+// ---------- Click handler ----------
+function onCellClick(cell,r,c){
+  if(!gameStarted||gamePaused||turn=="BLACK") return;
+  if(selectedCell){
+    const legal=getValidMoves(selectedCell);
+    if(legal.includes(cell)) makeMove(selectedCell,cell);
+    else {selectedCell.classList.remove('selected'); selectedCell=null; clearHighlights();}
+  } else if(cell.textContent&&cell.classList.contains('white-piece')){
+    selectedCell=cell; cell.classList.add('selected'); highlightMoves(getValidMoves(cell));
+  }
+}
 
-      const log = document.getElementById('move-history');
-      log.textContent += `${currentPlayer} moved ${piece} ${fromCell.dataset.row}-${fromCell.dataset.col} → ${toCell.dataset.row}-${toCell.dataset.col}${captured ? ' (captured ' + captured + ')' : ''}\n`;
-      log.scrollTop = log.scrollHeight;
+// ---------- Make move ----------
+function makeMove(from,to){
+  const piece=getPiece(from); if(!piece) return;
+  const captured=getPiece(to);
+  to.textContent=piece; to.className='cell white-piece';
+  from.textContent=''; from.className='cell';
+  addMoveHistory(`WHITE: ${piece} → ${to.id}${captured?` (captured ${captured})`:''}`);
+  selectedCell.classList.remove('selected'); selectedCell=null;
+  turn="BLACK"; document.getElementById('turn-indicator').textContent="Turn: BLACK";
+  setTimeout(aiMove,500);
+}
 
-      if (captured === '♚' || captured === '♔') {
-        alert(`${currentPlayer.toUpperCase()} captured the King! Game Over.`);
-        gameStarted = false;
-        return;
-      }
+// ---------- AI move ----------
+function aiMove(){
+  const cells=Array.from(document.querySelectorAll('.cell'));
+  const blacks=cells.filter(c=>c.classList.contains('black-piece'));
+  let allMoves=[];
+  blacks.forEach(cell=>getValidMoves(cell).forEach(t=>allMoves.push({from:cell,to:t})));
+  if(allMoves.length===0){document.getElementById('turn-indicator').textContent="WHITE Wins!"; return;}
+  const captureMoves=allMoves.filter(m=>m.to.classList.contains('white-piece'));
+  const move=(captureMoves.length?captureMoves:allMoves)[Math.floor(Math.random()*(captureMoves.length?captureMoves.length:allMoves.length))];
+  const captured=getPiece(move.to);
+  move.to.textContent=getPiece(move.from); move.to.className='cell black-piece';
+  move.from.textContent=''; move.from.className='cell';
+  addMoveHistory(`BLACK: ${move.to.textContent} → ${move.to.id}${captured?` (captured ${captured})`:''}`);
+  turn="WHITE"; document.getElementById('turn-indicator').textContent="Turn: WHITE";
+}
 
-      currentPlayer = currentPlayer === 'white' ? 'black' : 'white';
-      document.getElementById('status').textContent = `${currentPlayer.toUpperCase()}'s turn`;
-      clearHighlights();
-      selectedCell = null;
+// ---------- Move history ----------
+function addMoveHistory(text){const li=document.createElement('li'); li.textContent=text; moveHistory.appendChild(li); moveHistory.scrollTop=moveHistory.scrollHeight;}
 
-      if (currentPlayer === 'black') setTimeout(aiMakeMove, 600);
-    }
+// ---------- Buttons ----------
+document.getElementById('startBtn').onclick=()=>{gameStarted=true; gamePaused=false; turn="WHITE"; document.getElementById('turn-indicator').textContent="Turn: WHITE"; startBtn.disabled=true; playBtn.disabled=false; pauseBtn.disabled=false;}
+document.getElementById('playBtn').onclick=()=>{gamePaused=false; document.getElementById('turn-indicator').textContent=`Turn: ${turn}`;}
+document.getElementById('pauseBtn').onclick=()=>{gamePaused=true; document.getElementById('turn-indicator').textContent="Game Paused";}
+document.getElementById('resetBtn').onclick=()=>{createBoard(); moveHistory.innerHTML=''; gameStarted=false; gamePaused=false; selectedCell=null; turn="WHITE"; startBtn.disabled=false; playBtn.disabled=true; pauseBtn.disabled=true; document.getElementById('turn-indicator').textContent="Status: Waiting to Start";}
 
-    // ------------------------ Move Validation ------------------------
-    function getValidMoves(cell) {
-      const piece = getPiece(cell);
-      const owner = getPieceOwner(cell);
-      if (!piece || !owner) return [];
-      const row = parseInt(cell.dataset.row);
-      const col = parseInt(cell.dataset.col);
-      const moves = [];
-      const tryAdd = (r, c) => {
-        if (!isInBounds(r, c)) return;
-        const target = document.querySelector(`[data-row="${r}"][data-col="${c}"]`);
-        const targetOwner = getPieceOwner(target);
-        if (targetOwner !== owner) moves.push(target);
-      };
-
-      switch (piece) {
-        case '♔': case '♚':
-          for (let dr = -1; dr <= 1; dr++)
-            for (let dc = -1; dc <= 1; dc++)
-              if (dr || dc) tryAdd(row + dr, col + dc);
-          break;
-
-        case '♙':
-          tryAdd(row - 1, col); tryAdd(row - 1, col - 1); tryAdd(row - 1, col + 1); break;
-        case '♟':
-          tryAdd(row + 1, col); tryAdd(row + 1, col - 1); tryAdd(row + 1, col + 1); break;
-
-        case '♘': case '♞':
-          [[2, 1],[2, -1],[-2, 1],[-2, -1],[1, 2],[1, -2],[-1, 2],[-1, -2]].forEach(([dr, dc]) => tryAdd(row + dr, col + dc));
-          break;
-
-        case '♗': case '♝':
-          for (let d = 1; d < 5; d++) { tryAdd(row + d, col + d); tryAdd(row + d, col - d); tryAdd(row - d, col + d); tryAdd(row - d, col - d); }
-          break;
-
-        case '♕': case '♛':
-          for (let d = 1; d < 5; d++) {
-            tryAdd(row + d, col); tryAdd(row - d, col); tryAdd(row, col + d); tryAdd(row, col - d);
-            tryAdd(row + d, col + d); tryAdd(row + d, col - d); tryAdd(row - d, col + d); tryAdd(row - d, col - d);
-          }
-          break;
-
-        case '♖': case '♜':
-          for (let d = 1; d < 5; d++) { tryAdd(row + d, col); tryAdd(row - d, col); tryAdd(row, col + d); tryAdd(row, col - d); }
-          break;
-      }
-      return moves;
-    }
-
-    // ------------------------ Click Handlers ------------------------
-    function attachHandlers() {
-      document.querySelectorAll('.cell').forEach(cell => {
-        cell.onclick = () => {
-          if (!gameStarted || gamePaused || currentPlayer === 'black') return;
-          if (!selectedCell) {
-            if (getPieceOwner(cell) === currentPlayer) {
-              selectedCell = cell;
-              clearHighlights();
-              highlightMoves(getValidMoves(cell));
-            }
-          } else {
-            const moves = getValidMoves(selectedCell);
-            if (moves.includes(cell)) movePiece(selectedCell, cell);
-            else { clearHighlights(); selectedCell = null; }
-          }
-        };
-      });
-    }
-
-    // ------------------------ AI Logic ------------------------
-    function aiMakeMove() {
-      if (!gameStarted || gamePaused || currentPlayer !== 'black') return;
-      const allCells = [...document.querySelectorAll('.cell')];
-      const aiPieces = allCells.filter(c => getPieceOwner(c) === 'black' && getPiece(c) !== '');
-      let bestMove = null, bestScore = -Infinity;
-
-      aiPieces.forEach(pieceCell => {
-        const moves = getValidMoves(pieceCell);
-        moves.forEach(move => {
-          const target = getPiece(move);
-          let score = 0;
-          if (target && pieceMap[target] === 'white') {
-            const val = {'♔':10,'♕':9,'♖':5,'♗':3,'♘':3,'♙':1};
-            score = val[target] || 1;
-          } else if (parseInt(move.dataset.row) > parseInt(pieceCell.dataset.row)) score = 0.5;
-          if (score > bestScore) { bestScore = score; bestMove = {from: pieceCell, to: move}; }
-        });
-      });
-
-      if (bestMove) movePiece(bestMove.from, bestMove.to);
-      else {
-        const randPiece = aiPieces[Math.floor(Math.random() * aiPieces.length)];
-        const moves = getValidMoves(randPiece);
-        if (moves.length) movePiece(randPiece, moves[Math.floor(Math.random() * moves.length)]);
-      }
-    }
-
-    // Initialize
-    createBoard();
-    attachHandlers();
-  </script>
+createBoard();
+</script>
 </body>
 </html>
