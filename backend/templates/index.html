@@ -20,6 +20,9 @@
   button:hover { background:#fff; }
   #move-history { width:300px; height:120px; overflow-y:auto; border:1px solid #0ff5; margin-top:10px; padding:5px; font-size:14px; }
   #turn-indicator { font-weight:bold; text-shadow:0 0 8px #0ff; margin-bottom:5px; }
+  .selected { outline:2px solid #ff0; }
+  #checkmate-overlay { animation:fadeIn 0.5s ease forwards; }
+  @keyframes fadeIn { from {opacity:0} to {opacity:1} }
 </style>
 </head>
 <body>
@@ -29,30 +32,39 @@
 
 <div id="controls">
   <button id="startBtn">Start</button>
-  <button id="playBtn" disabled>Play</button>
   <button id="pauseBtn" disabled>Pause</button>
   <button id="resetBtn">Reset</button>
 </div>
+
 <ul id="move-history"></ul>
 
 <script>
+// -------------------- Chess Logic --------------------
+let selectedCell = null;
+let currentPlayer = 'white';
+let gameStarted = false;
+let gamePaused = false;
+
+const pieceMap = {
+  '♔': 'white', '♕': 'white', '♖': 'white', '♗': 'white', '♘': 'white', '♙': 'white',
+  '♚': 'black', '♛': 'black', '♜': 'black', '♝': 'black', '♞': 'black', '♟': 'black'
+};
+
+// ---------- Board Setup ----------
 const board = document.getElementById('chessboard');
 const boardSize = 5;
-const whitePieces = ['♙','♘','♕','♗','♙'];
-const blackPieces = ['♙','♗','♕','♘','♙']; // mirror
-let gameStarted=false, gamePaused=false, selectedCell=null, turn="WHITE";
+const whitePieces = ['♖','♘','♗','♕','♔'];
+const blackPieces = ['♜','♞','♝','♛','♚'];
 
-// ---------- Create board ----------
-function createBoard() {
+function createBoard(){
   board.innerHTML='';
   for(let r=0;r<boardSize;r++){
     for(let c=0;c<boardSize;c++){
       const cell=document.createElement('div');
-      cell.id=`${r}-${c}`;
       cell.dataset.row=r;
       cell.dataset.col=c;
       cell.classList.add('cell');
-      cell.addEventListener('click',()=>onCellClick(cell,r,c));
+      cell.addEventListener('click',()=>onCellClick(cell));
 
       if(r===0){cell.textContent=blackPieces[c]; cell.classList.add('black-piece');}
       if(r===4){cell.textContent=whitePieces[c]; cell.classList.add('white-piece');}
@@ -62,96 +74,141 @@ function createBoard() {
   }
 }
 
-// ---------- Highlight moves ----------
-function clearHighlights(){document.querySelectorAll('.cell').forEach(c=>c.classList.remove('highlight','capture'));}
-function highlightMoves(moves){clearHighlights(); moves.forEach(c=>{if(!c) return; c.classList.add(getPiece(c)?'capture':'highlight');});}
+// ---------- Helpers ----------
+function getPiece(cell){ return cell ? cell.textContent.trim() : ''; }
+function getPieceOwner(cell){ const p=getPiece(cell); return pieceMap[p]||null; }
+function isInBounds(r,c){ return r>=0 && r<boardSize && c>=0 && c<boardSize; }
 
-// ---------- Piece helpers ----------
-function getPiece(cell){return cell?cell.textContent.trim():'';}
-function getPieceOwner(cell){const p=getPiece(cell); if(['♙','♘','♕','♗','♔'].includes(p)) return 'white'; if(['♟','♞','♛','♝','♚'].includes(p)) return 'black'; return null;}
-function isInBounds(r,c){return r>=0 && r<5 && c>=0 && c<5;}
+function clearHighlights(){ document.querySelectorAll('.cell').forEach(c=>c.classList.remove('highlight','capture')); }
+function highlightMoves(moves){ clearHighlights(); moves.forEach(c=>{ if(!c) return; c.classList.add(getPiece(c)?'capture':'highlight'); }); }
 
-// ---------- Movement logic ----------
-function getValidMoves(cell){
-  const piece=getPiece(cell), owner=getPieceOwner(cell);
-  if(!piece||!owner) return [];
-  const r=parseInt(cell.dataset.row), c=parseInt(cell.dataset.col);
+function getAllLegalMoves(player){
+  const all=[...document.querySelectorAll('.cell')];
+  const mine=all.filter(c=>getPieceOwner(c)===player);
   const moves=[];
-  const add=(nr,nc)=>{if(!isInBounds(nr,nc))return; const target=document.querySelector(`[data-row="${nr}"][data-col="${nc}"]`); if(target&&getPieceOwner(target)!==owner) moves.push(target);};
-
-  if(piece==='♙'){ // white pawn
-    const f=document.querySelector(`[data-row="${r-1}"][data-col="${c}"]`); if(f&&!getPiece(f)) moves.push(f);
-    [[-1,-1],[-1,1]].forEach(([dr,dc])=>{const t=document.querySelector(`[data-row="${r+dr}"][data-col="${c+dc}"]`); if(t&&getPieceOwner(t)=='black') moves.push(t);});
-    return moves;
-  }
-  if(piece==='♟'){ // black pawn
-    const f=document.querySelector(`[data-row="${r+1}"][data-col="${c}"]`); if(f&&!getPiece(f)) moves.push(f);
-    [[1,-1],[1,1]].forEach(([dr,dc])=>{const t=document.querySelector(`[data-row="${r+dr}"][data-col="${c+dc}"]`); if(t&&getPieceOwner(t)=='white') moves.push(t);});
-    return moves;
-  }
-  if(piece==='♘'||piece==='♞'){ // knight
-    [[2,1],[2,-1],[-2,1],[-2,-1],[1,2],[1,-2],[-1,2],[-1,-2]].forEach(([dr,dc])=>add(r+dr,c+dc));
-    return moves;
-  }
-  if(['♗','♝','♕','♛'].includes(piece)){ // bishop & queen diagonal
-    const dirs=[[1,1],[1,-1],[-1,1],[-1,-1]]; dirs.forEach(([dr,dc])=>{let nr=r+dr,nc=c+dc; while(isInBounds(nr,nc)){const t=document.querySelector(`[data-row="${nr}"][data-col="${nc}"]`); if(!t) break; if(!getPiece(t)){moves.push(t); nr+=dr; nc+=dc; } else { if(getPieceOwner(t)!==owner) moves.push(t); break;}}});
-  }
-  if(['♖','♜','♕','♛'].includes(piece)){ // rook & queen straight
-    const dirs=[[1,0],[-1,0],[0,1],[0,-1]]; dirs.forEach(([dr,dc])=>{let nr=r+dr,nc=c+dc; while(isInBounds(nr,nc)){const t=document.querySelector(`[data-row="${nr}"][data-col="${nc}"]`); if(!t) break; if(!getPiece(t)){moves.push(t); nr+=dr; nc+=dc; } else { if(getPieceOwner(t)!==owner) moves.push(t); break;}}});
-  }
-  if(piece==='♔'||piece==='♚'){for(let dr=-1;dr<=1;dr++) for(let dc=-1;dc<=1;dc++) if(dr||dc)add(r+dr,c+dc);}
+  mine.forEach(c=>getValidMoves(c).forEach(t=>moves.push({from:c,to:t})));
   return moves;
 }
 
-// ---------- Click handler ----------
-function onCellClick(cell,r,c){
-  if(!gameStarted||gamePaused||turn=="BLACK") return;
+// ---------- Valid Moves ----------
+function getValidMoves(cell){
+  if(!cell) return [];
+  const piece=getPiece(cell);
+  const owner=getPieceOwner(cell);
+  if(!piece||!owner) return [];
+  const r=parseInt(cell.dataset.row), c=parseInt(cell.dataset.col);
+  const moves=[];
+  const add=(nr,nc)=>{if(!isInBounds(nr,nc)) return; const t=document.querySelector(`[data-row="${nr}"][data-col="${nc}"]`); if(t && getPieceOwner(t)!==owner) moves.push(t);};
+
+  if(piece==='♙'){ const f=document.querySelector(`[data-row="${r-1}"][data-col="${c}"]`); if(f&&!getPiece(f)) moves.push(f); [[-1,-1],[-1,1]].forEach(([dr,dc])=>{ const t=document.querySelector(`[data-row="${r+dr}"][data-col="${c+dc}"]`); if(t&&getPieceOwner(t)=='black') moves.push(t); }); return moves; }
+  if(piece==='♟'){ const f=document.querySelector(`[data-row="${r+1}"][data-col="${c}"]`); if(f&&!getPiece(f)) moves.push(f); [[1,-1],[1,1]].forEach(([dr,dc])=>{ const t=document.querySelector(`[data-row="${r+dr}"][data-col="${c+dc}"]`); if(t&&getPieceOwner(t)=='white') moves.push(t); }); return moves; }
+  if(piece==='♘'||piece==='♞'){ [[2,1],[2,-1],[-2,1],[-2,-1],[1,2],[1,-2],[-1,2],[-1,-2]].forEach(([dr,dc])=>add(r+dr,c+dc)); return moves; }
+  if(['♗','♝','♕','♛'].includes(piece)){ [[1,1],[1,-1],[-1,1],[-1,-1]].forEach(([dr,dc])=>{ let nr=r+dr,nc=c+dc; while(isInBounds(nr,nc)){ const t=document.querySelector(`[data-row="${nr}"][data-col="${nc}"]`); if(!t) break; if(!getPiece(t)){ moves.push(t); nr+=dr; nc+=dc; } else { if(getPieceOwner(t)!==owner) moves.push(t); break; } } }); }
+  if(['♖','♜','♕','♛'].includes(piece)){ [[1,0],[-1,0],[0,1],[0,-1]].forEach(([dr,dc])=>{ let nr=r+dr,nc=c+dc; while(isInBounds(nr,nc)){ const t=document.querySelector(`[data-row="${nr}"][data-col="${nc}"]`); if(!t) break; if(!getPiece(t)){ moves.push(t); nr+=dr; nc+=dc; } else { if(getPieceOwner(t)!==owner) moves.push(t); break; } } }); }
+  if(piece==='♔'||piece==='♚'){ for(let dr=-1;dr<=1;dr++) for(let dc=-1;dc<=1;dc++) if(dr||dc) add(r+dr,c+dc); }
+
+  return moves;
+}
+
+// ---------- Click Handler ----------
+function onCellClick(cell){
+  if(!gameStarted || gamePaused || currentPlayer!=='white') return;
   if(selectedCell){
     const legal=getValidMoves(selectedCell);
-    if(legal.includes(cell)) makeMove(selectedCell,cell);
-    else {selectedCell.classList.remove('selected'); selectedCell=null; clearHighlights();}
-  } else if(cell.textContent&&cell.classList.contains('white-piece')){
+    if(legal.includes(cell)){
+      movePiece(selectedCell,cell);
+    } else { selectedCell.classList.remove('selected'); selectedCell=null; clearHighlights(); }
+  } else if(cell.textContent && getPieceOwner(cell)==='white'){
     selectedCell=cell; cell.classList.add('selected'); highlightMoves(getValidMoves(cell));
   }
 }
 
-// ---------- Make move ----------
-function makeMove(from,to){
-  const piece=getPiece(from); if(!piece) return;
+// ---------- Move Piece ----------
+function movePiece(from,to){
+  const piece=getPiece(from);
+  if(!piece) return;
   const captured=getPiece(to);
-  to.textContent=piece; to.className='cell white-piece';
-  from.textContent=''; from.className='cell';
-  addMoveHistory(`WHITE: ${piece} → ${to.id}${captured?` (captured ${captured})`:''}`);
-  selectedCell.classList.remove('selected'); selectedCell=null;
-  turn="BLACK"; document.getElementById('turn-indicator').textContent="Turn: BLACK";
-  setTimeout(aiMove,500);
+
+  to.textContent=piece;
+  to.classList.remove('white-piece','black-piece');
+  to.classList.add(currentPlayer+'-piece');
+
+  from.textContent=''; from.classList.remove('white-piece','black-piece');
+
+  addMoveHistory(`${currentPlayer.toUpperCase()}: ${piece} ${from.dataset.row}-${from.dataset.col} → ${to.dataset.row}-${to.dataset.col}${captured?` (captured ${captured})`:''}`);
+
+  // King capture
+  if(captured==='♚'||captured==='♔'){ showCheckmate(currentPlayer); return; }
+
+  currentPlayer = currentPlayer==='white'?'black':'white';
+  document.getElementById('turn-indicator').textContent=`Turn: ${currentPlayer.toUpperCase()}`;
+  clearHighlights();
+  selectedCell=null;
+
+  // Opponent no legal moves -> checkmate
+  if(getAllLegalMoves(currentPlayer).length===0){ showCheckmate(currentPlayer==='white'?'black':'white'); return; }
+
+  if(currentPlayer==='black') setTimeout(aiMove,500);
 }
 
-// ---------- AI move ----------
+// ---------- AI Move ----------
 function aiMove(){
-  const cells=Array.from(document.querySelectorAll('.cell'));
-  const blacks=cells.filter(c=>c.classList.contains('black-piece'));
-  let allMoves=[];
-  blacks.forEach(cell=>getValidMoves(cell).forEach(t=>allMoves.push({from:cell,to:t})));
-  if(allMoves.length===0){document.getElementById('turn-indicator').textContent="WHITE Wins!"; return;}
-  const captureMoves=allMoves.filter(m=>m.to.classList.contains('white-piece'));
-  const move=(captureMoves.length?captureMoves:allMoves)[Math.floor(Math.random()*(captureMoves.length?captureMoves.length:allMoves.length))];
-  const captured=getPiece(move.to);
-  move.to.textContent=getPiece(move.from); move.to.className='cell black-piece';
-  move.from.textContent=''; move.from.className='cell';
-  addMoveHistory(`BLACK: ${move.to.textContent} → ${move.to.id}${captured?` (captured ${captured})`:''}`);
-  turn="WHITE"; document.getElementById('turn-indicator').textContent="Turn: WHITE";
+  const cells=[...document.querySelectorAll('.cell')];
+  const aiPieces=cells.filter(c=>getPieceOwner(c)==='black' && getPiece(c));
+  let bestMove=null, bestScore=-Infinity;
+  const valueMap={'♔':10,'♕':9,'♖':5,'♗':3,'♘':3,'♙':1};
+
+  aiPieces.forEach(p=>{
+    getValidMoves(p).forEach(t=>{
+      let score=0;
+      const target=getPiece(t);
+      if(target && getPieceOwner(target)==='white') score+=(valueMap[target]||1)*10;
+      const dr=parseInt(t.dataset.row)-parseInt(p.dataset.row); if(dr>0) score+=0.5;
+      const fromText=getPiece(p), toText=getPiece(t);
+      p.textContent=''; t.textContent=fromText;
+      const danger=[...document.querySelectorAll('.cell')].some(c=>getPieceOwner(c)==='white' && getValidMoves(c).includes(t));
+      p.textContent=fromText; t.textContent=toText;
+      if(danger) score-=5;
+      if(score>bestScore){ bestScore=score; bestMove={from:p,to:t}; }
+    });
+  });
+
+  if(bestMove) movePiece(bestMove.from,bestMove.to);
+  else {
+    const allMoves=[];
+    aiPieces.forEach(p=>getValidMoves(p).forEach(t=>allMoves.push({from:p,to:t})));
+    if(allMoves.length>0) movePiece(allMoves[Math.floor(Math.random()*allMoves.length)].from, allMoves[Math.floor(Math.random()*allMoves.length)].to);
+    else showCheckmate('white');
+  }
 }
 
-// ---------- Move history ----------
-function addMoveHistory(text){const li=document.createElement('li'); li.textContent=text; moveHistory.appendChild(li); moveHistory.scrollTop=moveHistory.scrollHeight;}
+// ---------- Move History ----------
+const moveHistory=document.getElementById('move-history');
+function addMoveHistory(text){ const li=document.createElement('li'); li.textContent=text; moveHistory.appendChild(li); moveHistory.scrollTop=moveHistory.scrollHeight; }
+
+// ---------- Checkmate Overlay ----------
+function showCheckmate(winner){
+  gameStarted=false;
+  const overlay=document.createElement('div');
+  overlay.id='checkmate-overlay';
+  Object.assign(overlay.style,{ position:'fixed', inset:0, display:'flex', alignItems:'center', justifyContent:'center', background:'rgba(0,0,0,0.6)', zIndex:9999, color:'#0ff', fontSize:'clamp(1.5rem,3vw,3rem)', textAlign:'center', flexDirection:'column', gap:'1rem' });
+  overlay.innerHTML=`
+    <div style="padding:20px 30px; border:3px solid #0ff; box-shadow:0 0 30px #0ff; border-radius:12px;">
+      <div style="font-weight:900;">♟ CHECKMATE</div>
+      <div style="margin-top:8px;">${winner.toUpperCase()} WINS</div>
+      <button id="cm-restart" style="margin-top:12px;padding:10px 18px;border-radius:10px;border:none;cursor:pointer;font-weight:bold;">Restart</button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  document.getElementById('cm-restart').onclick=()=>{ document.body.removeChild(overlay); location.reload(); };
+}
 
 // ---------- Buttons ----------
-document.getElementById('startBtn').onclick=()=>{gameStarted=true; gamePaused=false; turn="WHITE"; document.getElementById('turn-indicator').textContent="Turn: WHITE"; startBtn.disabled=true; playBtn.disabled=false; pauseBtn.disabled=false;}
-document.getElementById('playBtn').onclick=()=>{gamePaused=false; document.getElementById('turn-indicator').textContent=`Turn: ${turn}`;}
-document.getElementById('pauseBtn').onclick=()=>{gamePaused=true; document.getElementById('turn-indicator').textContent="Game Paused";}
-document.getElementById('resetBtn').onclick=()=>{createBoard(); moveHistory.innerHTML=''; gameStarted=false; gamePaused=false; selectedCell=null; turn="WHITE"; startBtn.disabled=false; playBtn.disabled=true; pauseBtn.disabled=true; document.getElementById('turn-indicator').textContent="Status: Waiting to Start";}
+document.getElementById('startBtn').onclick=()=>{ gameStarted=true; gamePaused=false; currentPlayer='white'; document.getElementById('turn-indicator').textContent='Turn: WHITE'; startBtn.disabled=true; pauseBtn.disabled=false; };
+document.getElementById('pauseBtn').onclick=()=>{ gamePaused=true; document.getElementById('turn-indicator').textContent='Game Paused'; };
+document.getElementById('resetBtn').onclick=()=>{ createBoard(); moveHistory.innerHTML=''; gameStarted=false; gamePaused=false; selectedCell=null; currentPlayer='white'; startBtn.disabled=false; pauseBtn.disabled=true; document.getElementById('turn-indicator').textContent='Status: Waiting to Start'; };
 
+// ---------- Initialize ----------
 createBoard();
 </script>
 </body>

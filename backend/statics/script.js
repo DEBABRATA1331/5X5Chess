@@ -1,4 +1,4 @@
-// Updated chess logic (symbol-based) with strict movement & checkmate detection
+// -------------------- Chess Logic JS (Fixed) --------------------
 
 let selectedCell = null;
 let currentPlayer = 'white';
@@ -10,7 +10,7 @@ const pieceMap = {
   '♚': 'black', '♛': 'black', '♜': 'black', '♝': 'black', '♞': 'black', '♟': 'black'
 };
 
-// ---------- Helpers ----------
+// -------------------- Helpers --------------------
 function getPiece(cell) { return cell ? cell.textContent.trim() : ''; }
 function getPieceOwner(cell) { const p = getPiece(cell); return pieceMap[p] || null; }
 function isInBounds(r, c) { return r >= 0 && r < 5 && c >= 0 && c < 5; }
@@ -22,13 +22,12 @@ function highlightMoves(moves) {
   clearHighlights();
   moves.forEach(t => {
     if (!t) return;
-    // Add a different class for captures (optional)
     const cls = getPiece(t) ? 'capture' : 'highlight';
     t.classList.add(cls);
   });
 }
 
-// ---------- Game control ----------
+// -------------------- Game Control --------------------
 function startGame() {
   gameStarted = true;
   gamePaused = false;
@@ -40,7 +39,7 @@ function pauseGame() {
   document.getElementById('status').textContent = "Game Paused ⏸️";
 }
 
-// ---------- Move and logging ----------
+// -------------------- Move & Logging --------------------
 function logMove(text) {
   const log = document.getElementById('move-history');
   log.textContent += text + '\n';
@@ -49,7 +48,6 @@ function logMove(text) {
 
 function showCheckmate(winner) {
   gameStarted = false;
-  // create overlay
   const overlay = document.createElement('div');
   overlay.id = 'checkmate-overlay';
   Object.assign(overlay.style, {
@@ -71,175 +69,144 @@ function showCheckmate(winner) {
   };
 }
 
-// ---------- Core move function ----------
+// -------------------- Core Move --------------------
 function movePiece(fromCell, toCell) {
   if (!fromCell || !toCell) return;
   const piece = getPiece(fromCell);
   const captured = getPiece(toCell);
-
-  // move visually and preserve owner class
-  toCell.textContent = piece;
-  // set proper owner class
   const owner = getPieceOwner(fromCell);
-  toCell.classList.remove('white-piece', 'black-piece');
+
+  // move visually
+  toCell.textContent = piece;
+  toCell.classList.remove('white-piece','black-piece');
   toCell.classList.add(owner + '-piece');
 
   fromCell.textContent = '';
-  fromCell.classList.remove('white-piece', 'black-piece');
+  fromCell.classList.remove('white-piece','black-piece');
 
   logMove(`${currentPlayer.toUpperCase()}: ${piece} ${fromCell.dataset.row}-${fromCell.dataset.col} → ${toCell.dataset.row}-${toCell.dataset.col}${captured ? ' (captured ' + captured + ')' : ''}`);
 
-  // immediate king capture -> end
+  // king captured -> checkmate
   if (captured === '♚' || captured === '♔') {
     showCheckmate(currentPlayer);
     return;
   }
 
-  // compute mover (who just moved)
+  // switch player
   const mover = currentPlayer;
-
-  // switch turn
   currentPlayer = currentPlayer === 'white' ? 'black' : 'white';
   document.getElementById('status').textContent = `${currentPlayer.toUpperCase()}'s turn`;
 
   clearHighlights();
   selectedCell = null;
 
-  // check for checkmate: if opponent has no legal moves
-  const opponent = currentPlayer;
-  const opponentMoves = getAllLegalMoves(opponent);
-  if (opponentMoves.length === 0) {
+  // opponent has no legal moves -> checkmate
+  if (getAllLegalMoves(currentPlayer).length === 0) {
     showCheckmate(mover);
     return;
   }
 
-  // AI if black
+  // AI move if black
   if (currentPlayer === 'black') {
     setTimeout(aiMakeMove, 500);
   }
 }
 
-// ---------- Movement generators based on rules ----------
-
+// -------------------- Valid Moves --------------------
 function getValidMoves(cell) {
   if (!cell) return [];
   const piece = getPiece(cell);
   const owner = getPieceOwner(cell);
   if (!piece || !owner) return [];
-
-  const row = parseInt(cell.dataset.row, 10);
-  const col = parseInt(cell.dataset.col, 10);
+  const row = parseInt(cell.dataset.row,10);
+  const col = parseInt(cell.dataset.col,10);
   const moves = [];
 
-  const addIfLegal = (r, c) => {
-    if (!isInBounds(r, c)) return;
-    const target = document.querySelector(`[data-row="${r}"][data-col="${c}"]`);
-    const targetOwner = getPieceOwner(target);
-    if (targetOwner !== owner) moves.push(target);
+  const addIfLegal = (r,c) => {
+    if (!isInBounds(r,c)) return;
+    const t = document.querySelector(`[data-row="${r}"][data-col="${c}"]`);
+    if (!t) return;
+    if (getPieceOwner(t) !== owner) moves.push(t);
   };
 
-  // Pawn rules: forward 1 only; diagonal capture only if enemy present; forward blocked if occupied.
-  if (piece === '♙' && owner === 'white') {
-    // forward
-    const f = document.querySelector(`[data-row="${row - 1}"][data-col="${col}"]`);
-    if (f && !getPiece(f)) moves.push(f);
-    // diagonals for captures only
-    [[-1, -1], [-1, 1]].forEach(([dr, dc]) => {
-      const t = document.querySelector(`[data-row="${row + dr}"][data-col="${col + dc}"]`);
-      if (t && getPieceOwner(t) === 'black') moves.push(t);
+  // Pawn
+  if (piece==='♙' && owner==='white') {
+    const f = document.querySelector(`[data-row="${row-1}"][data-col="${col}"]`);
+    if(f && !getPiece(f)) moves.push(f);
+    [[-1,-1],[-1,1]].forEach(([dr,dc])=>{
+      const t=document.querySelector(`[data-row="${row+dr}"][data-col="${col+dc}"]`);
+      if(t && getPieceOwner(t)==='black') moves.push(t);
     });
     return moves;
   }
-  if (piece === '♟' && owner === 'black') {
-    const f = document.querySelector(`[data-row="${row + 1}"][data-col="${col}"]`);
-    if (f && !getPiece(f)) moves.push(f);
-    [[1, -1], [1, 1]].forEach(([dr, dc]) => {
-      const t = document.querySelector(`[data-row="${row + dr}"][data-col="${col + dc}"]`);
-      if (t && getPieceOwner(t) === 'white') moves.push(t);
+  if (piece==='♟' && owner==='black') {
+    const f=document.querySelector(`[data-row="${row+1}"][data-col="${col}"]`);
+    if(f && !getPiece(f)) moves.push(f);
+    [[1,-1],[1,1]].forEach(([dr,dc])=>{
+      const t=document.querySelector(`[data-row="${row+dr}"][data-col="${col+dc}"]`);
+      if(t && getPieceOwner(t)==='white') moves.push(t);
     });
     return moves;
   }
 
-  // Knight: standard L-jumps; can jump over pieces
-  if (piece === '♘' || piece === '♞') {
-    const knightMoves = [
-      [2, 1], [2, -1], [-2, 1], [-2, -1],
-      [1, 2], [1, -2], [-1, 2], [-1, -2]
-    ];
-    knightMoves.forEach(([dr, dc]) => addIfLegal(row + dr, col + dc));
+  // Knight
+  if(piece==='♘' || piece==='♞') {
+    const km=[[2,1],[2,-1],[-2,1],[-2,-1],[1,2],[1,-2],[-1,2],[-1,-2]];
+    km.forEach(([dr,dc])=>addIfLegal(row+dr,col+dc));
     return moves;
   }
 
-  // Bishop (elephant): diagonal sliding, stop at obstacles
-  if (piece === '♗' || piece === '♝') {
-    const dirs = [[1,1],[1,-1],[-1,1],[-1,-1]];
-    dirs.forEach(([dr, dc]) => {
-      let r = row + dr, c = col + dc;
-      while (isInBounds(r, c)) {
-        const target = document.querySelector(`[data-row="${r}"][data-col="${c}"]`);
-        if (!target) break;
-        if (!getPiece(target)) {
-          moves.push(target);
-          r += dr; c += dc; // continue sliding
-          continue;
-        } else {
-          // occupied: if opponent -> add capture, then stop
-          if (getPieceOwner(target) !== owner) moves.push(target);
-          break;
-        }
+  // Bishop
+  if(piece==='♗' || piece==='♝') {
+    [[1,1],[1,-1],[-1,1],[-1,-1]].forEach(([dr,dc])=>{
+      let r=row+dr,c=col+dc;
+      while(isInBounds(r,c)){
+        const t=document.querySelector(`[data-row="${r}"][data-col="${c}"]`);
+        if(!t) break;
+        if(!getPiece(t)) moves.push(t);
+        else { if(getPieceOwner(t)!==owner)moves.push(t); break; }
+        r+=dr;c+=dc;
       }
     });
     return moves;
   }
 
-  // Rook (boat): straight sliding, stop at obstacles
-  if (piece === '♖' || piece === '♜') {
-    const dirs = [[1,0],[-1,0],[0,1],[0,-1]];
-    dirs.forEach(([dr, dc]) => {
-      let r = row + dr, c = col + dc;
-      while (isInBounds(r, c)) {
-        const target = document.querySelector(`[data-row="${r}"][data-col="${c}"]`);
-        if (!target) break;
-        if (!getPiece(target)) {
-          moves.push(target);
-          r += dr; c += dc;
-          continue;
-        } else {
-          if (getPieceOwner(target) !== owner) moves.push(target);
-          break;
-        }
+  // Rook
+  if(piece==='♖' || piece==='♜') {
+    [[1,0],[-1,0],[0,1],[0,-1]].forEach(([dr,dc])=>{
+      let r=row+dr,c=col+dc;
+      while(isInBounds(r,c)){
+        const t=document.querySelector(`[data-row="${r}"][data-col="${c}"]`);
+        if(!t) break;
+        if(!getPiece(t)) moves.push(t);
+        else { if(getPieceOwner(t)!==owner)moves.push(t); break; }
+        r+=dr;c+=dc;
       }
     });
     return moves;
   }
 
-  // Queen: combination of rook + bishop (sliding), stop at obstacles
-  if (piece === '♕' || piece === '♛') {
-    const dirs = [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]];
-    dirs.forEach(([dr, dc]) => {
-      let r = row + dr, c = col + dc;
-      while (isInBounds(r, c)) {
-        const target = document.querySelector(`[data-row="${r}"][data-col="${c}"]`);
-        if (!target) break;
-        if (!getPiece(target)) {
-          moves.push(target);
-          r += dr; c += dc;
-          continue;
-        } else {
-          if (getPieceOwner(target) !== owner) moves.push(target);
-          break;
-        }
+  // Queen
+  if(piece==='♕' || piece==='♛') {
+    [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]].forEach(([dr,dc])=>{
+      let r=row+dr,c=col+dc;
+      while(isInBounds(r,c)){
+        const t=document.querySelector(`[data-row="${r}"][data-col="${c}"]`);
+        if(!t) break;
+        if(!getPiece(t)) moves.push(t);
+        else { if(getPieceOwner(t)!==owner)moves.push(t); break; }
+        r+=dr;c+=dc;
       }
     });
     return moves;
   }
 
-  // King fallback (if present)
-  if (piece === '♔' || piece === '♚') {
-    for (let dr = -1; dr <= 1; dr++) {
-      for (let dc = -1; dc <= 1; dc++) {
-        if (dr === 0 && dc === 0) continue;
-        addIfLegal(row + dr, col + dc);
+  // King
+  if(piece==='♔'||piece==='♚'){
+    for(let dr=-1;dr<=1;dr++){
+      for(let dc=-1;dc<=1;dc++){
+        if(dr===0&&dc===0) continue;
+        addIfLegal(row+dr,col+dc);
       }
     }
     return moves;
@@ -248,124 +215,76 @@ function getValidMoves(cell) {
   return moves;
 }
 
-// ---------- Utility to get all legal moves for a player ----------
-function getAllLegalMoves(player) {
-  const all = [...document.querySelectorAll('.cell')];
-  const myCells = all.filter(c => getPieceOwner(c) === player);
-  const moves = [];
-  myCells.forEach(c => {
-    const vm = getValidMoves(c);
-    vm.forEach(t => moves.push({from: c, to: t}));
-  });
+// -------------------- All Legal Moves --------------------
+function getAllLegalMoves(player){
+  const all=[...document.querySelectorAll('.cell')];
+  const mine=all.filter(c=>getPieceOwner(c)===player);
+  const moves=[];
+  mine.forEach(c=>getValidMoves(c).forEach(t=>moves.push({from:c,to:t})));
   return moves;
 }
 
-// ---------- Click handlers attach (works with dataset attributes) ----------
-function attachClickHandlers() {
-  document.querySelectorAll('.cell').forEach(cell => {
-    cell.onclick = () => {
-      if (!gameStarted || gamePaused || currentPlayer !== 'white') return;
-
-      const owner = getPieceOwner(cell);
-      if (!selectedCell) {
-        if (owner === 'white') {
-          selectedCell = cell;
-          const moves = getValidMoves(cell);
-          highlightMoves(moves);
+// -------------------- Click Handlers --------------------
+function attachClickHandlers(){
+  document.querySelectorAll('.cell').forEach(cell=>{
+    cell.onclick=()=>{
+      if(!gameStarted || gamePaused || currentPlayer!=='white') return;
+      const owner=getPieceOwner(cell);
+      if(!selectedCell){
+        if(owner==='white'){
+          selectedCell=cell;
+          highlightMoves(getValidMoves(cell));
         }
       } else {
-        const legal = getValidMoves(selectedCell);
-        if (legal.includes(cell)) {
-          movePiece(selectedCell, cell);
-        } else {
-          clearHighlights();
-          selectedCell = null;
-        }
+        const legal=getValidMoves(selectedCell);
+        if(legal.includes(cell)){
+          movePiece(selectedCell,cell);
+        } else { clearHighlights(); selectedCell=null; }
       }
     };
   });
 }
 
-// ---------- AI (moderate intelligence) ----------
-function aiMakeMove() {
-  if (!gameStarted || gamePaused || currentPlayer !== 'black') return;
+// -------------------- AI Move --------------------
+function aiMakeMove(){
+  if(!gameStarted || gamePaused || currentPlayer!=='black') return;
+  const all=[...document.querySelectorAll('.cell')];
+  const aiPieces=all.filter(c=>getPieceOwner(c)==='black' && getPiece(c));
 
-  const allCells = [...document.querySelectorAll('.cell')];
-  const aiPieces = allCells.filter(c => getPieceOwner(c) === 'black' && getPiece(c));
+  const valueMap={'♔':10,'♕':9,'♖':5,'♗':3,'♘':3,'♙':1};
+  let bestMove=null; let bestScore=-Infinity;
 
-  const valueMap = { '♔': 10, '♕': 9, '♖': 5, '♗': 3, '♘': 3, '♙': 1 };
-
-  let bestMove = null;
-  let bestScore = -Infinity;
-
-  // iterate all possible moves, score captures and safety
-  aiPieces.forEach(pieceCell => {
-    const moves = getValidMoves(pieceCell);
-    moves.forEach(move => {
-      let score = 0;
-      const targetPiece = getPiece(move);
-      if (targetPiece && pieceMap[targetPiece] === 'white') {
-        score += (valueMap[targetPiece] || 1) * 10; // strongly favor captures
-      }
-      // small bonus for advancing forward (towards row 4)
-      const dr = parseInt(move.dataset.row) - parseInt(pieceCell.dataset.row);
-      score += (dr > 0) ? 0.5 : 0;
-
-      // simulate the move to check if it moves into immediate attack
-      const fromText = getPiece(pieceCell);
-      const toText = getPiece(move);
-
-      // perform simulation
-      pieceCell.textContent = '';
-      move.textContent = fromText;
-      const danger = [...document.querySelectorAll('.cell')].some(c => {
-        if (getPieceOwner(c) === 'white') {
-          const vm = getValidMoves(c);
-          return vm.includes(move);
-        }
-        return false;
-      });
-      // undo
-      pieceCell.textContent = fromText;
-      move.textContent = toText;
-
-      if (danger) score -= 5; // avoid suicide
-
-      if (score > bestScore) {
-        bestScore = score;
-        bestMove = { from: pieceCell, to: move };
-      }
+  aiPieces.forEach(p=>{
+    getValidMoves(p).forEach(t=>{
+      let score=0;
+      const target=getPiece(t);
+      if(target && pieceMap[target]==='white') score+=(valueMap[target]||1)*10;
+      const dr=parseInt(t.dataset.row)-parseInt(p.dataset.row);
+      if(dr>0) score+=0.5;
+      const fromText=getPiece(p),toText=getPiece(t);
+      p.textContent=''; t.textContent=fromText;
+      const danger=[...document.querySelectorAll('.cell')].some(c=>getPieceOwner(c)==='white' && getValidMoves(c).includes(t));
+      p.textContent=fromText; t.textContent=toText;
+      if(danger) score-=5;
+      if(score>bestScore){ bestScore=score; bestMove={from:p,to:t}; }
     });
   });
 
-  if (bestMove) {
-    movePiece(bestMove.from, bestMove.to);
-  } else {
-    // fallback: random legal move
-    const allLegal = [];
-    aiPieces.forEach(p => getValidMoves(p).forEach(t => allLegal.push({from:p,to:t})));
-    if (allLegal.length > 0) {
-      const mv = allLegal[Math.floor(Math.random()*allLegal.length)];
-      movePiece(mv.from, mv.to);
-    } else {
-      // no moves -> checkmate handled in movePiece checks or we can show:
-      showCheckmate('white');
-    }
+  if(bestMove) movePiece(bestMove.from,bestMove.to);
+  else {
+    const allLegal=[]; aiPieces.forEach(p=>getValidMoves(p).forEach(t=>allLegal.push({from:p,to:t})));
+    if(allLegal.length>0) movePiece(allLegal[Math.floor(Math.random()*allLegal.length)].from,allLegal[Math.floor(Math.random()*allLegal.length)].to);
+    else showCheckmate('white');
   }
 }
 
-// ---------- Initialization helper to wire UI (call after board created) ----------
-function initGameBindings() {
-  // attach button handlers if present
-  const startEl = document.getElementById('startBtn');
-  if (startEl) startEl.onclick = startGame;
-  const pauseEl = document.getElementById('pauseBtn');
-  if (pauseEl) pauseEl.onclick = pauseGame;
-  const resetEl = document.getElementById('resetBtn');
-  if (resetEl) resetEl.onclick = () => window.location.reload();
-
+// -------------------- Init Bindings --------------------
+function initGameBindings(){
+  const start=document.getElementById('startBtn');
+  if(start) start.onclick=startGame;
+  const pause=document.getElementById('pauseBtn');
+  if(pause) pause.onclick=pauseGame;
+  const reset=document.getElementById('resetBtn');
+  if(reset) reset.onclick=()=>window.location.reload();
   attachClickHandlers();
 }
-
-// call initGameBindings() after your HTML board is created and cells have data-row/data-col
-// e.g. createBoard(); initGameBindings();
