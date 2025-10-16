@@ -217,16 +217,23 @@ function movePiece(fromCell, toCell) {
 }
 
 
-// -------------------- Advanced AI Move with Dynamic Priority & Repositioning --------------------
+// -------------------- Strategic AI Move Logic for 5x5 Neon Mini Chess --------------------
 function aiMakeMove() {
   if (!gameStarted || gamePaused || currentPlayer !== 'black') return;
 
   const allCells = [...document.querySelectorAll('.cell')];
   const aiPieces = allCells.filter(c => getPieceOwner(c) === 'black' && getPiece(c));
+  const whitePieces = allCells.filter(c => getPieceOwner(c) === 'white' && getPiece(c));
+
   const valueMap = { '♚': 100, '♝': 5, '♞': 3, '♟': 1 };
 
   let bestMove = null;
   let bestScore = -Infinity;
+
+  // Helper: find white king position
+  const whiteKing = whitePieces.find(c => getPiece(c) === '♔');
+  const whiteKingRow = whiteKing ? parseInt(whiteKing.dataset.row) : null;
+  const whiteKingCol = whiteKing ? parseInt(whiteKing.dataset.col) : null;
 
   aiPieces.forEach(p => {
     const piece = getPiece(p);
@@ -235,79 +242,106 @@ function aiMakeMove() {
     validMoves.forEach(t => {
       const fromText = getPiece(p);
       const toText = getPiece(t);
+
+      // Simulate move
       t.textContent = fromText;
       p.textContent = '';
 
-      // Evaluate king safety
-      const futureAllCells = [...allCells];
+      // Evaluate situation
+      const futureAllCells = [...document.querySelectorAll('.cell')];
       const futureAiPieces = futureAllCells.filter(c => getPieceOwner(c) === 'black' && getPiece(c));
       const kingCell = futureAiPieces.find(c => getPiece(c) === '♚');
-      const kingUnderAttack = !kingCell ? false : [...futureAllCells].some(c => getPieceOwner(c) === 'white' && getValidMoves(c).includes(kingCell));
+      const kingUnderAttack = !kingCell ? false :
+        [...futureAllCells].some(c => getPieceOwner(c) === 'white' && getValidMoves(c).includes(kingCell));
 
-      // Evaluate danger for moved piece
+      // Check if target square will be under attack
       const underAttack = [...futureAllCells].some(c => getPieceOwner(c) === 'white' && getValidMoves(c).includes(t));
 
       // Undo simulation
       t.textContent = toText;
       p.textContent = fromText;
 
-      // Base scoring
+      // --- Score Evaluation ---
       let score = 0;
 
-      // 1️⃣ Capture priority
+      // 1️⃣ Priority: Capture high-value white pieces
       if (toText && pieceMap[toText] === 'white') {
         const targetValue = valueMap[toText] || 1;
-        score += targetValue * (targetValue >= 5 ? 15 : 5); // high priority vs low priority
+        score += targetValue * 25; // emphasize high-priority captures heavily
       }
 
-      // 2️⃣ Avoid self-capture (penalize)
-      if (underAttack) score -= (valueMap[piece] || 1) * 3;
+      // 2️⃣ Next priority: Move closer to white king (to apply pressure)
+      if (whiteKing) {
+        const dr = Math.abs(parseInt(t.dataset.row) - whiteKingRow);
+        const dc = Math.abs(parseInt(t.dataset.col) - whiteKingCol);
+        const distanceToKing = dr + dc;
+        const currentDistance = Math.abs(parseInt(p.dataset.row) - whiteKingRow) +
+                                Math.abs(parseInt(p.dataset.col) - whiteKingCol);
+        if (distanceToKing < currentDistance) {
+          score += 5; // reward moving closer
+        }
+      }
 
-      // 3️⃣ King safety (absolute)
+      // 3️⃣ Avoid self-check or losing high-value pieces
+      if (underAttack) score -= (valueMap[piece] || 1) * 10;
       if (kingUnderAttack) score -= 1000;
 
-      // 4️⃣ Forward movement for minor pieces
-      const dr = parseInt(t.dataset.row) - parseInt(p.dataset.row);
-      score += dr * 0.3;
+      // 4️⃣ Encourage activity: slight bonus for any legal move
+      score += 0.5;
 
-      // 5️⃣ Repositioning / retreating (sometimes prefer to move back if forward is unsafe)
-      if (dr < 0 && !toText) score += 0.5;
+      // 5️⃣ Slight penalty for staying still or moving backward unnecessarily
+      const rowDiff = parseInt(t.dataset.row) - parseInt(p.dataset.row);
+      if (rowDiff === 0 && !toText) score -= 0.3;
 
-      // 6️⃣ Support from adjacent allies
+      // 6️⃣ Support factor: reward clustering with allies
       const support = [[-1,0],[1,0],[0,-1],[0,1]].reduce((acc,[dr,dc])=>{
         const r=parseInt(t.dataset.row)+dr, c=parseInt(t.dataset.col)+dc;
         if(isInBounds(r,c)){
           const cell=document.querySelector(`[data-row="${r}"][data-col="${c}"]`);
-          if(cell && getPieceOwner(cell)==='black') acc+=0.5;
+          if(cell && getPieceOwner(cell)==='black') acc+=0.4;
         }
         return acc;
       },0);
       score += support;
 
-      // 7️⃣ Random factor
-      score += Math.random() * 0.5;
+      // 7️⃣ Add randomness for natural play
+      score += Math.random() * 0.4;
 
-      // Update best move
+      // Save best move
       if (score > bestScore) {
         bestScore = score;
-        bestMove = { from: p, to: t };
+        bestMove = { from: p, to: t, score };
       }
     });
   });
 
-  // Fallback: pick any legal move to avoid AI freezing
+  // -------------------- Fallback Mechanism --------------------
   if (!bestMove) {
     const allLegal = [];
-    aiPieces.forEach(p => getValidMoves(p).forEach(t => allLegal.push({ from: p, to: t })));
+    aiPieces.forEach(p => {
+      const valid = getValidMoves(p);
+      valid.forEach(t => allLegal.push({ from: p, to: t }));
+    });
+
     if (allLegal.length > 0) {
-      bestMove = allLegal[Math.floor(Math.random() * allLegal.length)];
+      // Move one step from lowest to highest value piece
+      const sortedPieces = aiPieces.sort(
+        (a, b) => (valueMap[getPiece(a)] || 0) - (valueMap[getPiece(b)] || 0)
+      );
+      for (const p of sortedPieces) {
+        const valid = getValidMoves(p);
+        if (valid.length > 0) {
+          bestMove = { from: p, to: valid[Math.floor(Math.random() * valid.length)] };
+          break;
+        }
+      }
     } else {
       showCheckmate('white');
       return;
     }
   }
 
-  // Execute chosen move
+  // -------------------- Execute Chosen Move --------------------
   if (bestMove) movePiece(bestMove.from, bestMove.to);
 }
 
