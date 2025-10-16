@@ -217,129 +217,149 @@ function movePiece(fromCell, toCell) {
 }
 
 
-// -------------------- Strategic AI Move Logic for 5x5 Neon Mini Chess --------------------
+// Drop-in replacement for aiMakeMove
 function aiMakeMove() {
   if (!gameStarted || gamePaused || currentPlayer !== 'black') return;
 
+  // --- lock UI / prevent player clicks during AI computation ---
+  const prevGamePaused = gamePaused;
+  gamePaused = true;
+
+  // Build list of AI pieces (DOM elements)
   const allCells = [...document.querySelectorAll('.cell')];
   const aiPieces = allCells.filter(c => getPieceOwner(c) === 'black' && getPiece(c));
-  const whitePieces = allCells.filter(c => getPieceOwner(c) === 'white' && getPiece(c));
 
-  const valueMap = { '♚': 100, '♝': 5, '♞': 3, '♟': 1 };
+  // value map including both white and black unicode symbols
+  const valueMap = {
+    '♚': 100, '♝': 5, '♞': 3, '♟': 1, // black symbols
+    '♔': 100, '♗': 5, '♘': 3, '♙': 1  // white symbols
+  };
 
   let bestMove = null;
   let bestScore = -Infinity;
 
-  // Helper: find white king position
-  const whiteKing = whitePieces.find(c => getPiece(c) === '♔');
-  const whiteKingRow = whiteKing ? parseInt(whiteKing.dataset.row) : null;
-  const whiteKingCol = whiteKing ? parseInt(whiteKing.dataset.col) : null;
+  // helper: snapshot board text contents (array of {el, text})
+  const snapshot = allCells.map(el => ({ el, text: el.textContent }));
 
-  aiPieces.forEach(p => {
+  // helper to restore snapshot
+  const restoreSnapshot = () => snapshot.forEach(s => { s.el.textContent = s.text; });
+
+  // find white king coords (for distance heuristics)
+  const whiteKing = allCells.find(c => getPiece(c) === '♔');
+  const whiteKingRow = whiteKing ? parseInt(whiteKing.dataset.row, 10) : null;
+  const whiteKingCol = whiteKing ? parseInt(whiteKing.dataset.col, 10) : null;
+
+  // Evaluate every possible AI move (simulate by mutating DOM, then restore)
+  for (const p of aiPieces) {
     const piece = getPiece(p);
     const validMoves = getValidMoves(p);
 
-    validMoves.forEach(t => {
+    for (const t of validMoves) {
+      // Snapshot is already taken; perform simulated move
       const fromText = getPiece(p);
       const toText = getPiece(t);
 
-      // Simulate move
+      // Simulate (mutate DOM)
       t.textContent = fromText;
       p.textContent = '';
 
-      // Evaluate situation
-      const futureAllCells = [...document.querySelectorAll('.cell')];
-      const futureAiPieces = futureAllCells.filter(c => getPieceOwner(c) === 'black' && getPiece(c));
-      const kingCell = futureAiPieces.find(c => getPiece(c) === '♚');
-      const kingUnderAttack = !kingCell ? false :
-        [...futureAllCells].some(c => getPieceOwner(c) === 'white' && getValidMoves(c).includes(kingCell));
-
-      // Check if target square will be under attack
-      const underAttack = [...futureAllCells].some(c => getPieceOwner(c) === 'white' && getValidMoves(c).includes(t));
-
-      // Undo simulation
-      t.textContent = toText;
-      p.textContent = fromText;
-
-      // --- Score Evaluation ---
+      // Evaluate: build simple metrics using existing helpers (getValidMoves, getPieceOwner, etc.)
+      // 1) Capture value
       let score = 0;
-
-      // 1️⃣ Priority: Capture high-value white pieces
       if (toText && pieceMap[toText] === 'white') {
         const targetValue = valueMap[toText] || 1;
-        score += targetValue * 25; // emphasize high-priority captures heavily
+        score += targetValue * 40; // heavy weight for capturing
       }
 
-      // 2️⃣ Next priority: Move closer to white king (to apply pressure)
+      // 2) Distance to white king (encourage closing)
       if (whiteKing) {
-        const dr = Math.abs(parseInt(t.dataset.row) - whiteKingRow);
-        const dc = Math.abs(parseInt(t.dataset.col) - whiteKingCol);
-        const distanceToKing = dr + dc;
-        const currentDistance = Math.abs(parseInt(p.dataset.row) - whiteKingRow) +
-                                Math.abs(parseInt(p.dataset.col) - whiteKingCol);
-        if (distanceToKing < currentDistance) {
-          score += 5; // reward moving closer
+        const tr = parseInt(t.dataset.row, 10);
+        const tc = parseInt(t.dataset.col, 10);
+        const pr = parseInt(p.dataset.row, 10);
+        const pc = parseInt(p.dataset.col, 10);
+        const prevDist = Math.abs(pr - whiteKingRow) + Math.abs(pc - whiteKingCol);
+        const newDist = Math.abs(tr - whiteKingRow) + Math.abs(tc - whiteKingCol);
+        if (newDist < prevDist) score += 6;   // meaningful bonus for moving closer
+        else if (newDist > prevDist) score -= 1; // small penalty for moving away
+      }
+
+      // 3) Mobility (number of legal moves after the move)
+      const futureAll = [...document.querySelectorAll('.cell')];
+      const futureAiCount = futureAll.filter(c => getPieceOwner(c) === 'black' && getPiece(c)).length;
+      // Slight mobility bonus: count legal moves for the moved piece
+      const movedPieceMoves = getValidMoves(t).length;
+      score += movedPieceMoves * 0.7;
+
+      // 4) Avoid moving into immediate capture: if any white move captures this new square, penalize
+      const underAttack = futureAll.some(c => getPieceOwner(c) === 'white' && getValidMoves(c).includes(t));
+      if (underAttack) {
+        // allow capture-into if capturing a high-value piece, otherwise penalize
+        if (toText && pieceMap[toText] === 'white') {
+          // reward capturing even if under attack, but less
+          score += (valueMap[toText] || 1) * 6;
+        } else {
+          score -= (valueMap[piece] || 1) * 8;
         }
       }
 
-      // 3️⃣ Avoid self-check or losing high-value pieces
-      if (underAttack) score -= (valueMap[piece] || 1) * 10;
-      if (kingUnderAttack) score -= 1000;
+      // 5) King safety: if AI king becomes attacked, heavy penalty
+      const futureAiPieces = futureAll.filter(c => getPieceOwner(c) === 'black' && getPiece(c));
+      const kingCell = futureAiPieces.find(c => getPiece(c) === '♚');
+      if (kingCell) {
+        const kingUnderAttack = futureAll.some(c => getPieceOwner(c) === 'white' && getValidMoves(c).includes(kingCell));
+        if (kingUnderAttack) score -= 1000;
+      }
 
-      // 4️⃣ Encourage activity: slight bonus for any legal move
-      score += 0.5;
-
-      // 5️⃣ Slight penalty for staying still or moving backward unnecessarily
-      const rowDiff = parseInt(t.dataset.row) - parseInt(p.dataset.row);
-      if (rowDiff === 0 && !toText) score -= 0.3;
-
-      // 6️⃣ Support factor: reward clustering with allies
-      const support = [[-1,0],[1,0],[0,-1],[0,1]].reduce((acc,[dr,dc])=>{
-        const r=parseInt(t.dataset.row)+dr, c=parseInt(t.dataset.col)+dc;
-        if(isInBounds(r,c)){
-          const cell=document.querySelector(`[data-row="${r}"][data-col="${c}"]`);
-          if(cell && getPieceOwner(cell)==='black') acc+=0.4;
+      // 6) Support factor: friendly neighbors give small bonus
+      const supportDirs = [[-1,0],[1,0],[0,-1],[0,1]];
+      let support = 0;
+      supportDirs.forEach(([dr,dc])=>{
+        const r = parseInt(t.dataset.row,10) + dr;
+        const c2 = parseInt(t.dataset.col,10) + dc;
+        if (isInBounds(r,c2)) {
+          const neighbor = document.querySelector(`[data-row="${r}"][data-col="${c2}"]`);
+          if (neighbor && getPieceOwner(neighbor) === 'black') support += 0.45;
         }
-        return acc;
-      },0);
+      });
       score += support;
 
-      // 7️⃣ Add randomness for natural play
-      score += Math.random() * 0.4;
+      // 7) tiny randomness to avoid deterministic play
+      score += Math.random() * 0.35;
 
       // Save best move
       if (score > bestScore) {
         bestScore = score;
         bestMove = { from: p, to: t, score };
       }
-    });
-  });
 
-  // -------------------- Fallback Mechanism --------------------
-  if (!bestMove) {
-    const allLegal = [];
-    aiPieces.forEach(p => {
-      const valid = getValidMoves(p);
-      valid.forEach(t => allLegal.push({ from: p, to: t }));
-    });
-
-    if (allLegal.length > 0) {
-      // Move one step from lowest to highest value piece
-      const sortedPieces = aiPieces.sort(
-        (a, b) => (valueMap[getPiece(a)] || 0) - (valueMap[getPiece(b)] || 0)
-      );
-      for (const p of sortedPieces) {
-        const valid = getValidMoves(p);
-        if (valid.length > 0) {
-          bestMove = { from: p, to: valid[Math.floor(Math.random() * valid.length)] };
-          break;
-        }
-      }
-    } else {
-      showCheckmate('white');
-      return;
+      // Restore snapshot for next simulation
+      restoreSnapshot();
     }
   }
+
+  // If no move chosen (should not happen unless stalemate), fallback
+  if (!bestMove) {
+    const fallback = [];
+    aiPieces.forEach(p => {
+      const valid = getValidMoves(p);
+      valid.forEach(t => fallback.push({ from: p, to: t }));
+    });
+    if (fallback.length === 0) {
+      showCheckmate('white');
+      gamePaused = prevGamePaused;
+      return;
+    }
+    bestMove = fallback[Math.floor(Math.random() * fallback.length)];
+  }
+
+  // Execute chosen move (actual game move)
+  if (bestMove) {
+    movePiece(bestMove.from, bestMove.to);
+  }
+
+  // unlock UI
+  gamePaused = prevGamePaused;
+}
 
   // -------------------- Execute Chosen Move --------------------
   if (bestMove) movePiece(bestMove.from, bestMove.to);
