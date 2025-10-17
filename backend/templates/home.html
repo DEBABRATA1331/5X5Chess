@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>5x5 Neon Mini Chess</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&display=swap');
+
+    body {
+      background-color: #000;
+      color: cyan;
+      font-family: 'Orbitron', sans-serif;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      overflow: hidden;
+    }
+
+    h1 {
+      font-size: 3rem;
+      text-shadow: 0 0 20px cyan;
+      margin-bottom: 2rem;
+      animation: pulse 2s infinite alternate;
+    }
+
+    @keyframes pulse {
+      from { text-shadow: 0 0 10px cyan; }
+      to { text-shadow: 0 0 25px cyan; }
+    }
+
+    .button-container {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    button {
+      background: transparent;
+      border: 2px solid cyan;
+      color: cyan;
+      font-size: 1.2rem;
+      font-family: 'Orbitron', sans-serif;
+      padding: 15px 40px;
+      border-radius: 12px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      cursor: pointer;
+      box-shadow: 0 0 20px cyan;
+      transition: all 0.3s ease;
+    }
+
+    button:hover {
+      background: cyan;
+      color: black;
+      box-shadow: 0 0 35px cyan, 0 0 60px cyan inset;
+      transform: scale(1.05);
+    }
+
+    footer {
+      position: absolute;
+      bottom: 20px;
+      font-size: 0.9rem;
+      color: #00ffffcc;
+      letter-spacing: 0.5px;
+      text-align: center;
+    }
+
+    .glow {
+      text-shadow: 0 0 10px cyan, 0 0 20px cyan;
+    }
+
+  </style>
+</head>
+<body>
+
+  <h1>5x5 Neon Mini Chess</h1>
+
+  <div class="button-container">
+    <button onclick="window.location.href='vs-computer.html'">Play vs Computer</button>
+    <button onclick="window.location.href='vs-friend.html'">Play vs Friend (Online)</button>
+  </div>
+
+  <footer>
+    Designed by <span class="glow">Debabrata Sahoo</span> | All rights reserved © 2025
+  </footer>
+
+</body>
+</html>
